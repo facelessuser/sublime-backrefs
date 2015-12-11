@@ -78,7 +78,6 @@ Unicode properties can be used with the format: `\p{UnicodeProperty}`.  The inve
 | Paragraph_Separator | Z |
 
 ### Using Backrefs
-You can import backrefs into a `bh_plugin`:
 
 ```python
 from backrefs import bre
