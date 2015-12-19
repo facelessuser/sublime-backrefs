@@ -81,7 +81,6 @@ RE_TYPE = type(re.compile('', 0))
 _UPPER = 0
 _LOWER = 1
 
-# Mapping of friendly unicode category names to shorthand codes.
 unicode_property_map = {
     # Other
     "Other": "C",
@@ -93,6 +92,7 @@ unicode_property_map = {
 
     # Letter
     "Letter": "L",
+    "Cased_Letter": "L&",
     "Uppercase_Letter": "Lu",
     "Lowercase_Letter": "Ll",
     "Titlecase_Letter": "Lt",
@@ -139,19 +139,22 @@ unicode_property_map = {
 _UPROP = r'''
 (?:p|P)\{
 (?:
-    C(?:c|f|s|o|n)?|L(?:u|l|t|m|o|n)?|M(?:n|c|e|d)?|N(?:d|l|o|c|d)?|
+    C(?:c|f|s|o|n)?|L(?:&|u|l|t|m|o|n)?|M(?:n|c|e|d)?|N(?:d|l|o|c|d)?|
     P(?:c|d|s|e|i|f|o)?|S(?:c|m|k|o)?|Z(?:p|s|l)?|
-    Letter|Uppercase_Letter|Lowercase_Letter|Titlecase_Letter|Modifier_Letter|Other_Letter|
+    Letter|Cased_Letter|Uppercase_Letter|Lowercase_Letter|Titlecase_Letter|Modifier_Letter|Other_Letter|
     Mark|Nonspacing_Mark|Spacing_Mark|Enclosing_Mark|
     Number|Decimal_Number|Letter_Number|Other_Number|
     Punctuation|Connector_Punctuation|Dash_Punctuation|Open_Punctuation|Close_Punctuation|
     Initial_Punctuation|Final_Punctuation|Other_Punctuation|
     Symbol|Math_Symbol|Currency_Symbol|Modifier_Symbol|Other_Symbol|
     Separator|Space_Separator|Line_Separator|Paragraph_Separator|
-    Control|Format|Surrogate|Private_Use|Unassigned
+    Control|Format|Surrogate|Private_Use|Unassigned|
+    Alnum|Alpha|ASCII|Blank|Cntrl|Digit|Graph|Lower|Print|Punct|Space|Upper|Word|XDigit
 )
 \}
 '''
+
+_RE_UPROP = re.compile(r'(?x)\\%s' % _UPROP)
 
 # Unicode string related references
 utokens = {
@@ -159,8 +162,8 @@ utokens = {
     "inverse_uni_prop": "P",
     "ascii_low_props": 'a-z',
     "ascii_upper_props": 'A-Z',
-    "negative_lower": '\u0000-\u0060\u007b-\u007f',
-    "negative_upper": '\u0000-\u0040\u005b-\u007f',
+    "negative_lower": '\u0000-\u0060\u007b-\uffff' if uniprops.NARROW else '\u0000-\u0060\u007b-\U0010ffff',
+    "negative_upper": '\u0000-\u0040\u005b-\uffff' if uniprops.NARROW else '\u0000-\u0040\u005b-\U0010ffff',
     "re_search_ref": re.compile(
         r'''(?x)
         (\\)+
@@ -190,25 +193,108 @@ utokens = {
     "re_flags": re.compile(
         r'(?s)(\\.)|\(\?([aiLmsux]+)\)|(.)' if compat.PY3 else r'(?s)(\\.)|\(\?([iLmsux]+)\)|(.)'
     ),
-    "ascii_flag": "a"
+    "ascii_flag": "a",
+    "re_posix": re.compile(
+        r'\[:(\^?(?:alnum|alpha|ascii|blank|cntrl|digit|graph|lower|print|punct|space|upper|word|xdigit)):\]'
+    ),
+    "posix": {
+        "alnum": r"a-zA-Z0-9",
+        "alpha": r"a-zA-Z",
+        "ascii": "\u0000-\u007F",
+        "blank": r" \t",
+        "cntrl": "\u0000-\u001F\u007F",
+        "digit": r"0-9",
+        "graph": "\u0021-\u007E",
+        "lower": r"a-z",
+        "print": "\u0020-\u007E",
+        "punct": r"!\"\#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~",
+        "space": r" \t\r\n\v\f",
+        "upper": r"A-Z",
+        "word": r"A-Za-z0-9_",
+        "xdigit": r"A-Fa-f0-9",
+        "^alnum": (
+            "\u0000-\u002f\u003a-\u0040\u005b-\u0060\u007b-\uffff"
+        ) if uniprops.NARROW else (
+            "\u0000-\u002f\u003a-\u0040\u005b-\u0060\u007b-\U0010ffff"
+        ),
+        "^alpha": (
+            "\u0000-\u0040\u005b-\u0060\u007b-\uffff"
+        ) if uniprops.NARROW else (
+            "\u0000-\u0040\u005b-\u0060\u007b-\U0010ffff"
+        ),
+        "^ascii": r"\u0080-\uffff" if uniprops.NARROW else r"\u0080-\U0010ffff",
+        "^blank": (
+            "\u0000-\u0008\u000a-\u001f\u0021-\uffff"
+        ) if uniprops.NARROW else (
+            "\u0000-\u0008\u000a-\u001f\u0021-\U0010ffff"
+        ),
+        "^cntrl": "\u0020-\u007E\u0080-\uffff" if uniprops.NARROW else "\u0020-\u007E\u0080-\U0010ffff",
+        "^digit": "\u0000-\u002f\u003a-\uffff" if uniprops.NARROW else "\u0000-\u002f\u003a-\U0010ffff",
+        "^graph": "\u0000-\u0020\u007F-\uffff" if uniprops.NARROW else "\u0000-\u0020\u007F-\U0010ffff",
+        "^lower": "\u0000-\u0060\u007B-\uffff" if uniprops.NARROW else "\u0000-\u0060\u007B-\U0010ffff",
+        "^print": "\u0000-\u001F\u007F-\uffff" if uniprops.NARROW else "\u0000-\u001F\u007F-\U0010ffff",
+        "^punct": (
+            "\u0000-\u0020\u0030-\u0039\u0041-\u005a\u0061\u007a\u007f-\uffff"
+        ) if uniprops.NARROW else (
+            "\u0000-\u0020\u0030-\u0039\u0041-\u005a\u0061\u007a\u007f-\U0010ffff"
+        ),
+        "^space": (
+            "\u0000-\u0008\u000e-\u001f\u0021-\uffff"
+        ) if uniprops.NARROW else (
+            "\u0000-\u0008\u000e-\u001f\u0021-\U0010ffff"
+        ),
+        "^upper": r"\u0000-\u0040\u005B-\uffff" if uniprops.NARROW else r"\u0000-\u0040\u005B-\U0010ffff",
+        "^word": (
+            "\u0000-\u002f\u003a-\u0040\u005b-\u005e\u0060\u007b-\uffff"
+        ) if uniprops.NARROW else (
+            "\u0000-\u002f\u003a-\u0040\u005b-\u005e\u0060\u007b-\U0010ffff"
+        ),
+        "^xdigit": (
+            "\u0000-\u002f\u003a-\u0040\u0047-\u0060\u0067-\uffff"
+        ) if uniprops.NARROW else (
+            "\u0000-\u002f\u003a-\u0040\u0047-\u0060\u0067-\U0010ffff"
+        )
+    },
+    "uposix": {
+        "alnum": "Alnum",
+        "alpha": "Alpha",
+        "ascii": "ASCII",
+        "blank": "Blank",
+        "cntrl": "Cntrl",
+        "digit": "Digit",
+        "graph": "Graph",
+        "lower": "Lower",
+        "print": "Print",
+        "punct": "Punct",
+        "space": "Space",
+        "upper": "Upper",
+        "word": "Word",
+        "xdigit": "XDigit",
+        "^alnum": "^Alnum",
+        "^alpha": "^Alpha",
+        "^ascii": "^ASCII",
+        "^blank": "^Blank",
+        "^cntrl": "^Cntrl",
+        "^digit": "^Digit",
+        "^graph": "^Graph",
+        "^lower": "^Lower",
+        "^print": "^Print",
+        "^punct": "^Punct",
+        "^space": "^Space",
+        "^upper": "^Upper",
+        "^word": "^Word",
+        "^xdigit": "^XDigit"
+    }
 }
 
 # Byte string related references
 btokens = {
-    "def_back_ref": set(
-        [
-            b"a", b"b", b"f", b"n", b"r",
-            b"t", b"v", b"A", b"b", b"B",
-            b"d", b"D", b"s", b"S", b"w",
-            b"W", b"Z", b"u", b"x", b"g"
-        ]
-    ),
     "uni_prop": b"p",
     "inverse_uni_prop": b"P",
     "ascii_low_props": b'a-z',
     "ascii_upper_props": b'A-Z',
-    "negative_lower": b'\x00-\x60\x7b-\x7f',
-    "negative_upper": b'\x00-\x40\x5b-\x7f',
+    "negative_lower": br'\x00-\x60\x7b-\xff',
+    "negative_upper": br'\x00-\x40\x5b-\xff',
     "re_search_ref": re.compile(
         br'''(?x)
         (\\)+
@@ -234,7 +320,70 @@ btokens = {
     "re_flags": re.compile(
         br'(?s)(\\.)|\(\?([aiLmsux]+)\)|(.)' if compat.PY3 else br'(?s)(\\.)|\(\?([iLmsux]+)\)|(.)'
     ),
-    "ascii_flag": b"a"
+    "ascii_flag": b"a",
+    "re_posix": re.compile(
+        br'\[:(\^?(?:alnum|alpha|ascii|blank|cntrl|digit|graph|lower|print|punct|space|upper|word|xdigit)):\]'
+    ),
+    "posix": {
+        b"alnum": br"a-zA-Z0-9",
+        b"alpha": br"a-zA-Z",
+        b"ascii": br"\x00-\x7F",
+        b"blank": br" \t",
+        b"cntrl": br"\x00-\x1F\x7F",
+        b"digit": br"0-9",
+        b"graph": br"\x21-\x7E",
+        b"lower": br"a-z",
+        b"print": br"\x20-\x7E",
+        b"punct": br"!\"\#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~",
+        b"space": br" \t\r\n\v\f",
+        b"upper": br"A-Z",
+        b"word": br"A-Za-z0-9_",
+        b"xdigit": br"A-Fa-f0-9",
+        b"^alnum": br"\x00-\x2f\x3a-\x40\x5b-\x60\x7b-\xff",
+        b"^alpha": br"\x00-\x40\x5b-\x60\x7b-\xff",
+        b"^ascii": br"\x80-\xff",
+        b"^blank": br"\x00-\x08\x0a-\x1f\x21-\xff",
+        b"^cntrl": br"\x20-\x7E\x80-\xff",
+        b"^digit": br"\x00-\x2f\x3a-\xff",
+        b"^graph": br"\x00-\x20\x7F-\xff",
+        b"^lower": br"\x00-\x60\x7B-\xff",
+        b"^print": br"\x00-\x1F\x7F-\xff",
+        b"^punct": br"\x00-\x20\x30-\x39\x41-\x5a\x61\x7a\x7f-\xff",
+        b"^space": br"\x00-\x08\x0e-\x1f\x21-\xff",
+        b"^upper": br"\x00-\x40\x5B-\xff",
+        b"^word": br"\x00-\x2f\x3a-\x40\x5b-\x5e\x60\x7b-\xff",
+        b"^xdigit": br"\x00-\x2f\x3a-\x40\x47-\x60\x67-\xff"
+    },
+    "uposix": {
+        b"alnum": b"Alnum",
+        b"alpha": b"Alpha",
+        b"ascii": b"ASCII",
+        b"blank": b"Blank",
+        b"cntrl": b"Cntrl",
+        b"digit": b"Digit",
+        b"graph": b"Graph",
+        b"lower": b"Lower",
+        b"print": b"Print",
+        b"punct": b"Punct",
+        b"space": b"Space",
+        b"upper": b"Upper",
+        b"word": b"Word",
+        b"xdigit": b"XDigit",
+        b"^alnum": b"^Alnum",
+        b"^alpha": b"^Alpha",
+        b"^ascii": b"^ASCII",
+        b"^blank": b"^Blank",
+        b"^cntrl": b"^Cntrl",
+        b"^digit": b"^Digit",
+        b"^graph": b"^Graph",
+        b"^lower": b"^Lower",
+        b"^print": b"^Print",
+        b"^punct": b"^Punct",
+        b"^space": b"^Space",
+        b"^upper": b"^Upper",
+        b"^word": b"^Word",
+        b"^xdigit": b"^XDigit"
+    }
 }
 
 
@@ -355,7 +504,9 @@ class SearchTokens(compat.Tokens):
             self._re_search_ref = tokens["re_search_ref_verbose"]
         else:
             self._re_search_ref = tokens["re_search_ref"]
+        self._ls_bracket = ctokens["ls_bracket"]
         self._b_slash = ctokens["b_slash"]
+        self._re_posix = tokens["re_posix"]
         self.max_index = len(string) - 1
         self.index = 0
         self.current = None
@@ -383,6 +534,10 @@ class SearchTokens(compat.Tokens):
                     char += self._b_slash
                 else:
                     char += m.group(3)
+        elif char == self._ls_bracket:
+            m = self._re_posix.match(self.string[self.index:])
+            if m:
+                char = m.group(0)
 
         self.index += len(char)
         self.current = char
@@ -503,6 +658,9 @@ class SearchTemplate(object):
         self._negative_upper = tokens["negative_upper"]
         self._negative_lower = tokens["negative_lower"]
         self._re_flags = tokens["re_flags"]
+        self._re_posix = tokens["re_posix"]
+        self._posix = tokens["posix"]
+        self._uposix = tokens["uposix"]
         self._nl = ctokens["nl"]
         self._hashtag = ctokens["hashtag"]
         self.search = search
@@ -556,17 +714,21 @@ class SearchTemplate(object):
         quote_found = False
         quote_start = 0
         escaped = False
+        posix = False
         found = False
         first = None
         for c in compat.iterstring(s):
-            if c == self._b_slash:
+            if posix:
+                if c == self._rs_bracket:
+                    posix = False
+            elif c == self._b_slash:
                 escaped = not escaped
             elif escaped and not found and not quote_found and c == self._quote:
                 quote_found = True
                 quote_start = pos - 1
                 escaped = False
             elif escaped and not found and quote_found and c == self._end:
-                quotes.append((quote_start, pos))
+                quotes.append((quote_start + 2, pos - 2))
                 quote_found = False
                 escaped = False
             elif escaped:
@@ -576,23 +738,57 @@ class SearchTemplate(object):
             elif c == self._ls_bracket and not found:
                 found = True
                 first = pos
+            elif c == self._ls_bracket and self._re_posix.match(s[pos:]) is not None:
+                posix = True
             elif c == self._negate and found and (pos == first + 1):
                 first = pos
             elif c == self._rs_bracket and found and (pos != first + 1):
-                groups.append((first, pos))
+                groups.append((first + 1, pos - 1))
                 found = False
             pos += 1
         if quote_found:
-            quotes.append((quote_start, pos - 1))
+            quotes.append((quote_start + 2, pos - 1))
         return groups, quotes
+
+    def posix_props(self, prop, force_unicode=False):
+        """Insert posix properties."""
+
+        if self.unicode or force_unicode:
+            pattern = uniprops.posix_unicode_properties[self._uposix[prop]]
+        else:
+            pattern = self._posix[prop]
+
+        return [pattern]
 
     def unicode_props(self, props, in_group, negate=False):
         """Insert unicode properties."""
 
-        if len(props) > 2:
-            props = unicode_property_map.get(props, None)
-
         properties = []
+        if len(props) > 2:
+            if props in uniprops.posix_unicode_properties:
+                # \p{posixclasses}
+                if not in_group:
+                    v = uniprops.posix_unicode_properties[props]
+                    if negate:
+                        v = self._ls_bracket + self._negate + v + self._rs_bracket
+                    else:
+                        v = self._ls_bracket + v + self._rs_bracket
+                else:
+                    # if props.startswith(self._negate):
+                    #     negate = not negate
+                    # if not negate and props.startswith(self._negate):
+                    #     props = props[1:]
+                    # elif negate and not props.startswith(self._negate):
+                    if negate:  # For now unless I add support for \p{^Alnum}
+                        props = self._negate + props
+
+                    v = uniprops.posix_unicode_properties[props]
+                properties = [v]
+                props = None
+            else:
+                # \p{Full_Unicode_Property_Name}
+                props = unicode_property_map.get(props, None)
+
         if props is not None:
             if not in_group:
                 v = _get_unicode_category(props)
@@ -680,21 +876,19 @@ class SearchTemplate(object):
 
                 c = t[1:]
 
-                if c.startswith(self._uni_prop):
+                if t.startswith(self._ls_bracket) and self.in_group(i.index - 1):
+                    self.extended.extend(self.posix_props(t[2:-2]))
+                elif c.startswith(self._uni_prop):
                     self.extended.extend(self.unicode_props(c[2:-1], self.in_group(i.index - 1)))
                 elif c.startswith(self._inverse_uni_prop):
                     self.extended.extend(self.unicode_props(c[2:-1], self.in_group(i.index - 1), negate=True))
                 elif c == self._lc:
-                    # Postpone evaluation of ASCII props as we don't yet know if unicode flag is enabled
                     self.extended.extend(self.ascii_props(_LOWER, self.in_group(i.index - 1)))
                 elif c == self._lc_span:
-                    # Postpone evaluation of ASCII props as we don't yet know if unicode flag is enabled
                     self.extended.extend(self.ascii_props(_LOWER, self.in_group(i.index - 1), negate=True))
                 elif c == self._uc:
-                    # Postpone evaluation of ASCII props as we don't yet know if unicode flag is enabled
                     self.extended.extend(self.ascii_props(_UPPER, self.in_group(i.index - 1)))
                 elif c == self._uc_span:
-                    # Postpone evaluation of ASCII props as we don't yet know if unicode flag is enabled
                     self.extended.extend(self.ascii_props(_UPPER, self.in_group(i.index - 1), negate=True))
                 elif c[0:1] in self._verbose_tokens:
                     self.extended.append(t)

@@ -7,6 +7,8 @@ Backrefs was written to add various additional backrefs that are known to some r
 
 ### Search Back References
 
+For **re**:
+
 | Back&nbsp;References | Description |
 | ---------------------|-------------|
 | `\c`                 | Uppercase character class.  ASCII or Unicode when re Unicode flag is used.  Can be used in character classes `[]`. |
@@ -17,8 +19,16 @@ Backrefs was written to add various additional backrefs that are known to some r
 | `\p{UnicodeProperty}`| Unicode property character class. Search string must be a Unicode string. Can be used in character classes `[]`. See [Unicode Properties](#unicode-properties) for more info. |
 | `\P{UnicodeProperty}`| Inverse Unicode property character class. Search string must be a Unicode string. Can be used in character classes `[]`. See [Unicode Properties](#unicode-properties) for more info. |
 
+For **regex**:
+
+| Back&nbsp;References | Description |
+| ---------------------|-------------|
+| `\Q...\E`            | Quotes (escapes) text for regex.  `\E` signifies the end of the quoting. Will be ignored in character classes `[]`. |
+
 ### Replace Back References
-None of the replace back references can be used in character classes `[]`.  Since bracket rules are only for search, replace back references will only apply if using the backrefs module in a bh_plugin.
+None of the replace back references can be used in character classes `[]`.  These apply to both **re** and **regex**.
+
+Since bracket rules are only for search, replace back references will only apply if using the backrefs module in a bh_plugin.
 
 | Back&nbsp;References | Description |
 | ---------------------|-------------|
@@ -46,6 +56,7 @@ Unicode properties can be used with the format: `\p{UnicodeProperty}`.  The inve
 | Private_Use | Co |
 | Unassigned | Cn |
 | Letter | L |
+| Cased_Letter | L& |
 | Uppercase_Letter | Lu |
 | Lowercase_Letter | Ll |
 | Titlecase_Letter | Lt |
@@ -76,6 +87,26 @@ Unicode properties can be used with the format: `\p{UnicodeProperty}`.  The inve
 | Space_Separator | Zs |
 | Line_Separator | Zl |
 | Paragraph_Separator | Z |
+
+### Posix Properties
+Posix properties in the form of `[:alnum:]` and the inverse `[:^alnum:]` are available.  These character classes are only available inside a character group `[]`.  If needed, you can use the alternate form of `\p{Alnum}` to use inside and outside a character group.
+
+| \[:posix:\] | \p{Posix} | ASCII | Unicode |
+| ----------- | --------- | ----- | ------- |
+| alnum | Alnum | `[a-zA-Z0-9]` | `[\p{L&}\p{Nd}]` |
+| alpha | Alpha | `[a-zA-Z]` | `[\p{L&}]` |
+| ascii | ASCII | `[\x00-\x7F]` | `[\x00-\x7F]` |
+| blank | Blank | `[ \t]` | `[\p{Zs}\t]` |
+| cntrl | Cntrl | `[\x00-\x1F\x7F]` | `[\p{Cc}]` |
+| digit | Digit | `[0-9]` | `[\p{Nd}]` |
+| graph | Graph | `[\x21-\x7E]` | `[^\p{Z}\p{C}]` |
+| lower | Lower | `[a-z]` | `[\p{Ll}]` |
+| print | Print | `[\x20-\x7E]` | `[\P{C}]` |
+| punct | Punct | ``[!\"\#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~]`` | `[\p{P}\p{S}]` |
+| space | Space | `[ \t\r\n\v\f]` | `[\p{Z}\t\r\n\v\f]` |
+| upper | Upper | `[A-Z]` | `[\p{Lu}]` |
+| word | Word | `[A-Za-z0-9_]` | `[\p{L}\p{N}\p{Pc}]` |
+| xdigit | XDigit | `[A-Fa-f0-9]` | `[A-Fa-f0-9]` |
 
 ### Using Backrefs
 
