@@ -37,8 +37,7 @@ Since bracket rules are only for search, replace back references will only apply
 | `\C...\E`            | Apply uppercase to all characters until either the end of the string or the end marker `\E` is found. |
 | `\L...\E`            | Apply lowercase to all characters until either the end of the string or the end marker `\E` is found. |
 
-!!! tip "Tip"
-    Complex configurations of casing should work fine.
+**Tip:** Complex configurations of casing should work fine.
 
     - `\L\cTEST\E` --> `Test`
     - `\c\LTEST\E` --> `Test`
