@@ -44,7 +44,7 @@ Since bracket rules are only for search, replace back references will only apply
     - `\L\cTEST \cTEST\E` --> `Test Test`
 
 ### Unicode Properties
-Unicode properties can be used with the format: `\p{UnicodeProperty}`.  The inverse can also be used to specify everything not in a Unicode property: `\P{UnicodeProperty}`.  They are only used in the search patterns. You can use either the verbose format or the terse format, but only one property may specified between the curly braces.  If you want to use multiple properties, you can place them in a character class: `[\p{UnicodeProperty}\p{OtherUnicodeProperty}]`.  See the table below to see all the Unicode properties that can be used.
+Unicode properties can be used with the format: `\p{UnicodeProperty}`.  The inverse can also be used to specify everything not in a Unicode property: `\P{UnicodeProperty}`.  They are only used in the search patterns. You can use either the verbose format or the terse format, but only one property may specified between the curly braces.  If you want to use multiple properties, you can place them in a character class: `[\p{UnicodeProperty}\p{OtherUnicodeProperty}]`.  See the table below to see all the Unicode properties that can be used.  Keep in mind that these only work in Unicode string search patterns; you don't have to be using the UNICODE flag.
 
 | Verbose&nbsp;Property&nbsp;Form | Terse&nbsp;Property&nbsp;Form |
 |---------------------------------|-------------------------------|
@@ -87,8 +87,8 @@ Unicode properties can be used with the format: `\p{UnicodeProperty}`.  The inve
 | Line_Separator | Zl |
 | Paragraph_Separator | Z |
 
-### Posix Properties
-Posix properties in the form of `[:posix:]` and the inverse `[:^posix:]` are available.  These character classes are only available inside a character group `[]`.  If needed, you can use the alternate form of `\p{Posix}` to use inside and outside a character group.  If using the `\p{Posix}` form, the return will always be Unicode.
+### Posix Style Properties
+Posix style properties in the form of `[:posix:]` and the inverse `[:^posix:]` are available.  These character classes are only available inside a character group `[]`.  If needed, you can use the alternate form of `\p{Posix}` to use inside and outside a character group.  If using the `\p{Posix}` form, the return will always be Unicode.
 
 | \[:posix:\] | \p{Posix} | ASCII | Unicode |
 | ----------- | --------- | ----- | ------- |
