@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 from .age import *  # noqa
 from .alias import *  # noqa
-from .bidiclasse import *  # noqa
+from .bidiclass import *  # noqa
 from .binary import *  # noqa
 from .block import *  # noqa
 from .canonicalcombiningclass import *  # noqa

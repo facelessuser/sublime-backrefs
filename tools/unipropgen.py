@@ -30,6 +30,7 @@ if PY3:
 else:
     unichar = unichr  # noqa
 
+ALL_CHARS = set([x for x in range(UNICODE_RANGE[0], UNICODE_RANGE[1] + 1)])
 HEADER = '''\
 """Unicode Properties (autogen)."""
 from __future__ import unicode_literals
@@ -89,6 +90,18 @@ def create_span(unirange):
     return [x for x in range(unirange[0], unirange[1] + 1)]
 
 
+def not_explicitly_defined(table, name):
+    """Compose a table with the specified entry name of values not explicitly defined."""
+
+    s = set()
+    for k, v in table.items():
+        s.update(v)
+    if name in table:
+        table[name] = list(set(table[name]) | (ALL_CHARS - s))
+    else:
+        table[name] = list(ALL_CHARS - s)
+
+
 def char2range(d, binary=False, invert=True):
     """Convert the characters in the dict to a range in string form."""
 
@@ -108,7 +121,7 @@ def char2range(d, binary=False, invert=True):
             ifirst = None
             v2 = []
             iv2 = []
-            if v1[0] != 0:
+            if v1 and v1[0] != 0:
                 ifirst = 0
             for i in v1:
                 if first is None:
@@ -131,7 +144,9 @@ def char2range(d, binary=False, invert=True):
                     first = i
                     last = i
 
-            if first is not None:
+            if not v1:
+                iv2 = ["%s-%s" % (fmt(0), fmt(maxrange))]
+            elif first is not None:
                 if first == last:
                     v2.append(fmt(first))
                 else:
@@ -160,6 +175,8 @@ def gen_blocks(output):
     with codecs.open(output, 'w', 'utf-8') as f:
         f.write(HEADER)
         f.write('unicode_blocks = {')
+        no_block = []
+        last = -1
 
         with open(os.path.join(HOME, 'unicodedata', UNIVERSION, 'Blocks.txt'), 'r') as uf:
             for line in uf:
@@ -168,6 +185,9 @@ def gen_blocks(output):
                     if len(data) < 2:
                         continue
                     block = [int(i, 16) for i in data[0].strip().split('..')]
+                    if block[0] > last + 1:
+                        no_block.append((last + 1, block[0] - 1))
+                    last = block[1]
                     if NARROW and block[0] > MAXUNICODE:
                         break
                     inverse_range = []
@@ -178,10 +198,74 @@ def gen_blocks(output):
                     name = format_name(data[1])
                     f.write('\n    "%s": "%s-%s",' % (name, uniformat(block[0]), uniformat(block[1])))
                     f.write('\n    "^%s": "%s",' % (name, ''.join(inverse_range)))
+            if last < MAXUNICODE:
+                no_block.append((last + 1, MAXUNICODE))
+            last = -1
+            no_block_inverse = []
+            for piece in no_block:
+                if piece[0] > last + 1:
+                    no_block_inverse.append((last + 1, piece[0] - 1))
+                last = piece[1]
+            for block, name in ((no_block, 'noblock'), (no_block_inverse, '^noblock')):
+                f.write('\n    "%s": "' % name)
+                for piece in block:
+                    if piece[0] == piece[1]:
+                        f.write(uniformat(piece[0]))
+                    else:
+                        f.write("%s-%s" % (uniformat(piece[0]), uniformat(piece[1])))
+                f.write('",')
             f.write('\n}\n')
 
 
-def gen_enum(file_name, obj_name, output, field=1):
+def gen_ccc(output):
+    """Generate canonical combining class."""
+
+    obj = {}
+    with open(os.path.join(HOME, 'unicodedata', UNIVERSION, 'DerivedCombiningClass.txt'), 'r') as uf:
+        for line in uf:
+            if not line.startswith('#'):
+                data = line.split('#')[0].split(';')
+                if len(data) < 2:
+                    continue
+                span = create_span([int(i, 16) for i in data[0].strip().split('..')])
+                if span is None:
+                    continue
+                name = format_name(data[1])
+
+                if name not in obj:
+                    obj[name] = []
+                obj[name].extend(span)
+
+    for x in range(0, 256):
+        key = str(x)
+        if key not in obj:
+            obj[key] = []
+
+    for name in list(obj.keys()):
+        s = set(obj[name])
+        obj[name] = sorted(s)
+
+    not_explicitly_defined(obj, '0')
+
+    # Convert characters values to ranges
+    char2range(obj)
+
+    with codecs.open(output, 'w', 'utf-8') as f:
+        f.write(HEADER)
+        # Write out the unicode properties
+        f.write('%s = {\n' % 'uniocde_canonical_combining_class')
+        count = len(obj) - 1
+        i = 0
+        for k1, v1 in sorted(obj.items()):
+            f.write('    "%s": "%s"' % (k1, v1))
+            if i == count:
+                f.write('\n}\n')
+            else:
+                f.write(',\n')
+            i += 1
+
+
+def gen_enum(file_name, obj_name, output, field=1, notexplicit=None):
     """Generate generic enum."""
 
     obj = {}
@@ -204,6 +288,9 @@ def gen_enum(file_name, obj_name, output, field=1):
         s = set(obj[name])
         obj[name] = sorted(s)
 
+    if notexplicit:
+        not_explicitly_defined(obj, notexplicit)
+
     # Convert characters values to ranges
     char2range(obj)
 
@@ -222,7 +309,7 @@ def gen_enum(file_name, obj_name, output, field=1):
             i += 1
 
 
-def gen_age(all_chars, output):
+def gen_age(output):
     """Generate Age."""
 
     obj = {}
@@ -244,7 +331,7 @@ def gen_age(all_chars, output):
     unassigned = set()
     for x in obj.values():
         unassigned |= set(x)
-    obj['na'] = list(all_chars - unassigned)
+    obj['na'] = list(ALL_CHARS - unassigned)
 
     for name in list(obj.keys()):
         s = set(obj[name])
@@ -268,7 +355,7 @@ def gen_age(all_chars, output):
             i += 1
 
 
-def gen_nf_quick_check(all_chars, output):
+def gen_nf_quick_check(output):
     """Generate binary properties."""
 
     categories = []
@@ -298,7 +385,7 @@ def gen_nf_quick_check(all_chars, output):
         temp = set()
         for k2 in list(v1.keys()):
             temp |= set(v1[k2])
-        v1['y'] = list(all_chars - temp)
+        v1['y'] = list(ALL_CHARS - temp)
 
     for k1, v1 in nf.items():
         for name in list(v1.keys()):
@@ -686,7 +773,7 @@ def gen_alias(enum, binary, output):
                 line_re = re.compile(r'%s\s*;' % m.group(2), re.I)
             if gather and line_re.match(line):
                 data = [format_name(x) for x in line.split('#')[0].split(';')]
-                if current_category in ('sc', 'blk'):
+                if current_category in ('sc', 'blk', 'dt', 'jg', 'sb', 'wb', 'lb', 'gcb'):
                     data[1], data[2] = data[2], data[1]
                 elif current_category == 'age' and UNIVERSION_INFO < (6, 1, 0):
                     if data[2] == 'unassigned':
@@ -724,6 +811,8 @@ def gen_alias(enum, binary, output):
                 else:
                     f.write(',\n')
                 j += 1
+            if count2 < 0:
+                f.write('    }')
             if i == count:
                 f.write('\n}\n')
             else:
@@ -753,7 +842,7 @@ def gen_properties(output):
         'gc': os.path.join(output, 'generalcategory.py'),
         'blk': os.path.join(output, 'block.py'),
         'sc': os.path.join(output, 'script.py'),
-        'bc': os.path.join(output, 'bidiclasse.py'),
+        'bc': os.path.join(output, 'bidiclass.py'),
         'binary': os.path.join(output, 'binary.py'),
         'posix': os.path.join(output, 'posix.py'),
         'age': os.path.join(output, 'age.py'),
@@ -806,13 +895,12 @@ def gen_properties(output):
                     table['l']['c'].append(i)
 
     # Create inverse of each category
-    all_chars = set([x for x in range(UNICODE_RANGE[0], UNICODE_RANGE[1] + 1)])
     for k1, v1 in table.items():
         inverse_category = set()
         for k2, v2 in v1.items():
             s = set(v2)
             inverse_category |= s
-        itable[k1]['^'] = list(all_chars - inverse_category)
+        itable[k1]['^'] = list(ALL_CHARS - inverse_category)
 
     # Generate Unicode blocks
     print('Building: Blocks')
@@ -820,7 +908,7 @@ def gen_properties(output):
 
     # Generate Unicode scripts
     print('Building: Scripts')
-    gen_enum('Scripts.txt', 'unicode_scripts', files['sc'])
+    gen_enum('Scripts.txt', 'unicode_scripts', files['sc'], notexplicit='zzzz')
 
     # Generate Unicode bidi classes
     print('Building: Bidi Classes')
@@ -836,46 +924,46 @@ def gen_properties(output):
     gen_posix(files['posix'], append=True)
 
     print('Building: Age')
-    gen_age(all_chars, files['age'])
+    gen_age(files['age'])
 
     print('Building: East Asian Width')
-    gen_enum('EastAsianWidth.txt', 'unicode_east_asian_width', files['ea'])
+    gen_enum('EastAsianWidth.txt', 'unicode_east_asian_width', files['ea'], notexplicit='n')
 
     print('Building: Grapheme Cluster Break')
-    gen_enum('GraphemeBreakProperty.txt', 'unicode_grapheme_cluster_break', files['gcb'])
+    gen_enum('GraphemeBreakProperty.txt', 'unicode_grapheme_cluster_break', files['gcb'], notexplicit='other')
 
     print('Building: Line Break')
-    gen_enum('LineBreak.txt', 'unicode_line_break', files['lb'])
+    gen_enum('LineBreak.txt', 'unicode_line_break', files['lb'], notexplicit='unknown')
 
     print('Building: Sentence Break')
-    gen_enum('SentenceBreakProperty.txt', 'unicode_sentence_break', files['sb'])
+    gen_enum('SentenceBreakProperty.txt', 'unicode_sentence_break', files['sb'], notexplicit='other')
 
     print('Building: Word Break')
-    gen_enum('WordBreakProperty.txt', 'unicode_word_break', files['wb'])
+    gen_enum('WordBreakProperty.txt', 'unicode_word_break', files['wb'], notexplicit='other')
 
     print('Building: Hangul Syllable Type')
-    gen_enum('HangulSyllableType.txt', 'unicode_hangul_syllable_type', files['hst'])
+    gen_enum('HangulSyllableType.txt', 'unicode_hangul_syllable_type', files['hst'], notexplicit='na')
 
     print('Building: Decomposition Type')
-    gen_enum('DerivedDecompositionType.txt', 'unicode_decomposition_type', files['dt'])
+    gen_enum('DerivedDecompositionType.txt', 'unicode_decomposition_type', files['dt'], notexplicit='none')
 
     print('Building: Joining Type')
-    gen_enum('DerivedJoiningType.txt', 'unicode_joining_type', files['jt'])
+    gen_enum('DerivedJoiningType.txt', 'unicode_joining_type', files['jt'], notexplicit='u')
 
     print('Building: Joining Group')
-    gen_enum('DerivedJoiningGroup.txt', 'unicode_joining_group', files['jg'])
+    gen_enum('DerivedJoiningGroup.txt', 'unicode_joining_group', files['jg'], notexplicit='nonjoining')
 
     print('Building: Numeric Type')
-    gen_enum('DerivedNumericType.txt', 'unicode_numeric_type', files['nt'])
+    gen_enum('DerivedNumericType.txt', 'unicode_numeric_type', files['nt'], notexplicit='none')
 
     print('Building: Numeric Value')
-    gen_enum('DerivedNumericValues.txt', 'unicode_numeric_values', files['nv'], field=3)
+    gen_enum('DerivedNumericValues.txt', 'unicode_numeric_values', files['nv'], field=3, notexplicit='nan')
 
     print('Building: Canonical Combining Class')
-    gen_enum('DerivedCombiningClass.txt', 'uniocde_canonical_combining_class', files['ccc'])
+    gen_ccc(files['ccc'])
 
     print('Building: NF* Quick Check')
-    categories.extend(gen_nf_quick_check(all_chars, files['qc']))
+    categories.extend(gen_nf_quick_check(files['qc']))
 
     print('Building: Aliases')
     gen_alias(categories, binary, files['alias'])
