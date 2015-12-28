@@ -462,9 +462,11 @@ unicode_alias = {
         "yes": "y"
     },
     "numerictype": {
-        "decimal": "de",
-        "digit": "di",
-        "numeric": "nu"
+        "de": "decimal",
+        "di": "digit",
+        "nu": "numeric"
+    },
+    "numericvalue": {
     },
     "script": {
         "arab": "arabic",
