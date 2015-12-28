@@ -45,7 +45,7 @@ Since bracket rules are only for search, replace back references will only apply
     - `\L\cTEST \cTEST\E` --> `Test Test`
 
 ### Unicode Properties
-There are quite a few properties that are also supported and an exhaustive list is not currently provided. This documentation will only briefly touch on `General_Category`, `Block`, 'Script', and binary properties.
+There are quite a few properties that are also supported and an exhaustive list is not currently provided. This documentation will only briefly touch on `General_Category`, `Block`, `Script`, and binary properties.
 
 Unicode properties can be used with the format: `\p{property=value}`, `\p{property:value}`, `\p{value}`, `\p{^property=value}`, `\p{^value}`.  Though you don't have to specify the `UNICODE` flag, the search pattern must be a Unicode string and the search buffer must also be Unicode.
 
