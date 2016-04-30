@@ -132,7 +132,9 @@ Posix properties in the form of `[:posix:]` and the inverse `[:^posix:]` are ava
 If using the `\p{Posix}` form, the return will always be Unicode and properties like `punct` will revert to the Unicode property form opposed the posix unless `posix` is prefixed to the name.  Example: the Unicode property `punct` = `[\p{P}]`, but the posix `punct` = `[\p{P}\p{S}]`.
 
 ### Posix Style Properties
-Posix properties in the form of `[:posix:]` and the inverse `[:^posix:]` are available.  These character classes are only available inside a character group `[]`.  If needed, you can use the alternate form of `\p{Posix}` to use inside and outside a character group. If using the `\p{Posix}` form, the return will always be Unicode.
+Posix properties in the form of `[:posix:]` and the inverse `[:^posix:]` are available.  These character classes are only available inside a character group `[]`.  If needed, you can use the alternate form of `\p{Posix}` to use inside and outside a character group.
+
+If using the `\p{Posix}` form, the return will always be Unicode and properties like `punct` will revert to the Unicode property form opposed the posix unless `posix` is prefixed to the name.  Example: the Unicode property `punct` = `[\p{P}]`, but the posix `posixpunct` = `[\p{P}\p{S}]`.
 
 | \[:posix:\] | \p{Posix} | ASCII | Unicode |
 | ----------- | --------- | ----- | ------- |
