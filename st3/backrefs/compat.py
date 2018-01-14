@@ -14,24 +14,14 @@ if PY3:
     binary_type = bytes
     unichar = chr
 
-    def iterstring(string):
-        """Iterate through a string."""
-
-        if isinstance(string, binary_type):
-            for x in range(0, len(string)):
-                yield string[x:x + 1]
-        else:
-            for c in string:
-                yield c
-
     class Tokens(object):
-        """Tokens base for PY3."""
+        """Tokens base for Python 3."""
 
         def iternext(self):
             """Common override method."""
 
         def __next__(self):
-            """PY3 iterator compatible next."""
+            """Python 3 iterator compatible next."""
 
             return self.iternext()
 
@@ -40,26 +30,20 @@ else:
     binary_type = str  # noqa F821
     unichar = unichr  # noqa F821
 
-    def iterstring(string):
-        """Iterate through a string."""
-
-        for c in string:
-            yield c
-
     class Tokens(object):
-        """Tokens base for PY2."""
+        """Tokens base for Python 2."""
 
         def iternext(self):
             """Common override method."""
 
         def next(self):
-            """PY2 iterator compatible next."""
+            """Python 2 iterator compatible next."""
 
             return self.iternext()
 
 
 def uchr(i):
-    """Allow getting unicode character on narrow python builds."""
+    """Allow getting Unicode character on narrow python builds."""
 
     try:
         return unichar(i)

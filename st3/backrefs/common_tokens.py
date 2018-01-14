@@ -29,6 +29,8 @@ utokens = {
     "group": "g",
     "lc_bracket": "{",
     "rc_bracket": "}",
+    "lr_bracket": "(",
+    "rr_bracket": ")",
     "group_start": r"\g<",
     "group_end": ">",
     "format_replace_group": re.compile(
@@ -40,7 +42,9 @@ utokens = {
     "hex": "x",
     "zero": "0",
     "unicode_narrow": "u",
-    "unicode_wide": "U"
+    "unicode_wide": "U",
+    "unicode_name": "N",
+    "long_replace_refs": ("u", "U", "g", "x", "N")
 }
 
 # Byte string related references
@@ -68,6 +72,8 @@ btokens = {
     "group": b"g",
     "lc_bracket": b"{",
     "rc_bracket": b"}",
+    "lr_bracket": b"(",
+    "rr_bracket": b")",
     "group_start": br"\g<",
     "group_end": b">",
     "format_replace_group": re.compile(
@@ -79,5 +85,7 @@ btokens = {
     "hex": b"x",
     "zero": b"0",
     "unicode_narrow": b"u",
-    "unicode_wide": b"U"
+    "unicode_wide": b"U",
+    "unicode_name": b"N",
+    "long_replace_refs": (b"g", b"x")
 }
