@@ -8,6 +8,8 @@ import sys
 import struct
 
 PY3 = (3, 0) <= sys.version_info < (4, 0)
+PY36 = (3, 6) <= sys.version_info
+PY37 = (3, 7) <= sys.version_info
 
 if PY3:
     string_type = str
@@ -49,15 +51,3 @@ def uchr(i):
         return unichar(i)
     except ValueError:  # pragma: no cover
         return struct.pack('i', i).decode('utf-32')
-
-
-def int2str(number):
-    """Convert number to string."""
-
-    return string_type(number)
-
-
-def int2bytes(number):
-    """Convert number to bytes."""
-
-    return string_type(number).encode('ascii')
