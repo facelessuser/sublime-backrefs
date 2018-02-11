@@ -7,6 +7,7 @@ Copyright (c) 2015 - 2018 Isaac Muse <isaacmuse@gmail.com>
 import sys
 import struct
 
+PY2 = (2, 0) <= sys.version_info < (3, 0)
 PY3 = (3, 0) <= sys.version_info < (4, 0)
 PY34 = (3, 4) <= sys.version_info
 PY36 = (3, 6) <= sys.version_info
@@ -74,8 +75,20 @@ def uchr(i):
 
     try:
         return unichar(i)
-    except ValueError:  # pragma: no cover
+    except ValueError:
         return struct.pack('i', i).decode('utf-32')
+
+
+def uord(c):
+    """Get Unicode ordinal."""
+
+    if len(c) == 2:
+        high, low = [ord(p) for p in c]
+        ordinal = (high - 0xD800) * 0x400 + low - 0xDC00 + 0x10000
+    else:
+        ordinal = ord(c)
+
+    return ordinal
 
 
 class Immutable(object):
@@ -91,4 +104,5 @@ class Immutable(object):
 
     def __setattr__(self, name, value):
         """Prevent mutability."""
+
         raise AttributeError('Class is immutable!')
