@@ -23,6 +23,7 @@ unicode_alias = {
         "nv": "numericvalue",
         "sb": "sentencebreak",
         "sc": "script",
+        "scx": "scriptextensions",
         "wb": "wordbreak"
     },
     "age": {
@@ -573,6 +574,8 @@ unicode_alias = {
         "zyyy": "common",
         "zzzz": "unknown"
     },
+    "scriptextensions": {
+    },
     "sentencebreak": {
         "at": "aterm",
         "cl": "close",
@@ -639,6 +642,8 @@ enum_names = {
     "sb",
     "sc",
     "script",
+    "scriptextensions",
+    "scx",
     "sentencebreak",
     "wb",
     "wordbreak"

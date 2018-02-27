@@ -21,4 +21,5 @@ from .posix import *  # noqa
 from .quickcheck import *  # noqa
 from .sentencebreak import *  # noqa
 from .script import *  # noqa
+from .scriptextensions import *  # noqa
 from .wordbreak import *  # noqa

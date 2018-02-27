@@ -11,7 +11,7 @@ import codecs
 import os
 import re
 
-__version__ = '3.0.0'
+__version__ = '4.0.0'
 
 UNIVERSION = unicodedata.unidata_version
 UNIVERSION_INFO = tuple([int(x) for x in UNIVERSION.split('.')])
@@ -23,6 +23,7 @@ GROUP_ESCAPES = frozenset([ord(x) for x in '-&[\\]^|~'])
 
 # Compatibility
 PY3 = sys.version_info >= (3, 0) and sys.version_info[0:2] < (4, 0)
+PY34 = sys.version_info >= (3, 4)
 if NARROW:
     UNICODE_RANGE = (0x0000, 0xFFFF)
 else:
@@ -288,6 +289,105 @@ def gen_ccc(output, ascii_props=False, append=False, prefix=""):
             else:
                 f.write(',\n')
             i += 1
+
+
+def gen_scripts(
+    file_name, file_name_ext, obj_name, obj_ext_name, output, output_ext,
+    field=1, notexplicit=None, ascii_props=False, append=False, prefix=""
+):
+    """Generate generic enum."""
+
+    obj = {}
+    obj2 = {}
+    if PY3:
+        aliases = {}
+        with open(os.path.join(HOME, 'unicodedata', UNIVERSION, 'PropertyValueAliases.txt'), 'r') as uf:
+            for line in uf:
+                if line.startswith('sc ;'):
+                    values = line.split(';')
+                    aliases[format_name(values[1].strip())] = format_name(values[2].strip())
+
+        with open(os.path.join(HOME, 'unicodedata', UNIVERSION, file_name_ext), 'r') as uf:
+            for line in uf:
+                if not line.startswith('#'):
+                    data = line.split('#')[0].split(';')
+                    if len(data) < 2:
+                        continue
+                    exts = [aliases[format_name(n)] for n in data[1].strip().split(' ')]
+                    span = create_span([int(i, 16) for i in data[0].strip().split('..')], binary=ascii_props)
+                    for ext in exts:
+                        if ext not in obj2:
+                            obj2[ext] = []
+                        if span is None:
+                            continue
+
+                        obj2[ext].extend(span)
+
+    with open(os.path.join(HOME, 'unicodedata', UNIVERSION, file_name), 'r') as uf:
+        for line in uf:
+            if not line.startswith('#'):
+                data = line.split('#')[0].split(';')
+                if len(data) < 2:
+                    continue
+                span = create_span([int(i, 16) for i in data[0].strip().split('..')], binary=ascii_props)
+                name = format_name(data[1])
+                if name not in obj:
+                    obj[name] = []
+                if name not in obj2:
+                    obj2[name] = []
+
+                if span is None:
+                    continue
+
+                obj[name].extend(span)
+                obj2[name].extend(span)
+
+    for name in list(obj.keys()):
+        s = set(obj[name])
+        obj[name] = sorted(s)
+
+    for name in list(obj2.keys()):
+        s = set(obj2[name])
+        obj2[name] = sorted(s)
+
+    if notexplicit:
+        not_explicitly_defined(obj, notexplicit, binary=ascii_props)
+        not_explicitly_defined(obj2, notexplicit, binary=ascii_props)
+
+    # Convert characters values to ranges
+    char2range(obj, binary=ascii_props)
+    char2range(obj2, binary=ascii_props)
+
+    with codecs.open(output, 'a' if append else 'w', 'utf-8') as f:
+        if not append:
+            f.write(HEADER)
+        # Write out the unicode properties
+        f.write('%s_%s = {\n' % (prefix, obj_name))
+        count = len(obj) - 1
+        i = 0
+        for k1, v1 in sorted(obj.items()):
+            f.write('    "%s": "%s"' % (k1, v1))
+            if i == count:
+                f.write('\n}\n')
+            else:
+                f.write(',\n')
+            i += 1
+
+    if PY3:
+        with codecs.open(output_ext, 'a' if append else 'w', 'utf-8') as f:
+            if not append:
+                f.write(HEADER)
+            # Write out the unicode properties
+            f.write('%s_%s = {\n' % (prefix, obj_ext_name))
+            count = len(obj2) - 1
+            i = 0
+            for k1, v1 in sorted(obj2.items()):
+                f.write('    "%s": "%s"' % (k1, v1))
+                if i == count:
+                    f.write('\n}\n')
+                else:
+                    f.write(',\n')
+                i += 1
 
 
 def gen_enum(file_name, obj_name, output, field=1, notexplicit=None, ascii_props=False, append=False, prefix=""):
@@ -579,6 +679,51 @@ def gen_bidi(output, ascii_props=False, append=False, prefix=""):
             i += 1
 
 
+def gen_bidi_paired_bracket_type(output, ascii_props=False, append=False, prefix=''):
+    """Generate bide paired bracket type properties."""
+
+    bpt_class = {}
+    max_range = MAXASCII if ascii_props else MAXUNICODE
+    with open(os.path.join(HOME, 'unicodedata', UNIVERSION, 'BidiBrackets.txt'), 'r') as uf:
+        for line in uf:
+            if not line.startswith('#'):
+                data = line.split('#')[0].strip().split(';')
+                if len(data) == 3:
+                    value = int(data[0].strip(), 16)
+                    bracket_type = data[2].strip()
+
+                    if bracket_type not in bpt_class:
+                        bpt_class[bracket_type] = []
+
+                    if value > max_range:
+                        continue
+
+                    bpt_class[bracket_type].append(value)
+
+    for name in list(bpt_class.keys()):
+        s = set(bpt_class[name])
+        bpt_class[name] = sorted(s)
+
+    not_explicitly_defined(bpt_class, 'n', binary=ascii_props)
+
+    # Convert characters values to ranges
+    char2range(bpt_class, binary=ascii_props)
+
+    with codecs.open(output, 'a' if append else 'w', 'utf-8') as f:
+        if not append:
+            f.write(HEADER)
+        f.write('%s_bidi_paired_bracket_type = {\n' % prefix)
+        count = len(bpt_class) - 1
+        i = 0
+        for k1, v1 in sorted(bpt_class.items()):
+            f.write('    "%s": "%s"' % (k1, v1))
+            if i == count:
+                f.write('\n}\n')
+            else:
+                f.write(',\n')
+            i += 1
+
+
 def gen_posix(output, binary=False, append=False, prefix=""):
     """Generate the binary posix table and write out to file."""
 
@@ -752,12 +897,7 @@ def gen_alias(enum, binary, output, ascii_props=False, append=False, prefix=""):
     divider_re = re.compile(r'#\s*=+\s*$')
     posix_props = ('alnum', 'blank', 'graph', 'print', 'xdigit')
     toplevel = (
-        'catalog', 'enumerated', 'numeric', 'eastasianwidth',
-        'linebreak', 'hangulsyllabletype', 'decompositiontype',
-        'wordbreak', 'sentencebreak', 'graphemeclusterbreak',
-        'joiningtype', 'joininggroup', 'numerictype',
-        'numericvalue', 'canonicalcombiningclass', 'age',
-        'nfcquickcheck', 'nfdquickcheck', 'nfkcquickcheck', 'nfkdquickcheck'
+        'catalog', 'enumerated', 'numeric', 'miscellaneous'
     )
 
     with open(os.path.join(HOME, 'unicodedata', UNIVERSION, 'PropertyAliases.txt'), 'r') as uf:
@@ -903,6 +1043,11 @@ def gen_properties(output, ascii_props=False, append=False):
         'alias': os.path.join(output, 'alias.py')
     }
 
+    if PY3:
+        files['scx'] = os.path.join(output, 'scriptextensions.py')
+    if PY34:
+        files['bpt'] = os.path.join(output, 'bidipairedbrackettype.py')
+
     prefix = "ascii" if ascii_props else 'unicode'
 
     # L& or Lc won't be found in the table,
@@ -916,6 +1061,10 @@ def gen_properties(output, ascii_props=False, append=False):
         'joininggroup', 'numerictype', 'numericvalue',
         'canonicalcombiningclass', 'age'
     ]
+    if PY3:
+        categories.append('scriptextensions')
+    if PY34:
+        categories.append('bidipairedbrackettype')
     if ascii_props:
         print('=========Ascii Tables=========')
     else:
@@ -956,15 +1105,25 @@ def gen_properties(output, ascii_props=False, append=False):
     gen_blocks(files['blk'], ascii_props, append, prefix)
 
     # Generate Unicode scripts
-    print('Building: Scripts')
-    gen_enum(
-        'Scripts.txt', 'scripts', files['sc'], notexplicit='zzzz',
-        ascii_props=ascii_props, append=append, prefix=prefix
-    )
+    print('Building: Scripts & Script Extensions')
+    if PY3:
+        gen_scripts(
+            'Scripts.txt', 'ScriptExtensions.txt', 'scripts', 'script_extensions', files['sc'], files['scx'],
+            notexplicit='zzzz', ascii_props=ascii_props, append=append, prefix=prefix
+        )
+    else:
+        gen_scripts(
+            'Scripts.txt', None, 'scripts', None, files['sc'], None,
+            notexplicit='zzzz', ascii_props=ascii_props, append=append, prefix=prefix
+        )
 
     # Generate Unicode bidi classes
     print('Building: Bidi Classes')
     gen_bidi(files['bc'], ascii_props, append, prefix)
+
+    if PY34:
+        print('Building: Bidi Paired Bracket Type')
+        gen_bidi_paired_bracket_type(files['bpt'], ascii_props, append, prefix)
 
     # Generate Unicode binary
     print('Building: Binary')
