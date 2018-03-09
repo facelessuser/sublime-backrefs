@@ -12,6 +12,8 @@ from .eastasianwidth import *  # noqa
 from .generalcategory import *  # noqa
 from .graphemeclusterbreak import *  # noqa
 from .hangulsyllabletype import *  # noqa
+from .indicmatracategory import *  # noqa
+from .indicsyllabiccategory import *  # noqa
 from .joininggroup import *  # noqa
 from .joiningtype import *  # noqa
 from .linebreak import *  # noqa

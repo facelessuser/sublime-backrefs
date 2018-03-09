@@ -11,7 +11,7 @@ import codecs
 import os
 import re
 
-__version__ = '4.0.0'
+__version__ = '4.2.0'
 
 UNIVERSION = unicodedata.unidata_version
 UNIVERSION_INFO = tuple([int(x) for x in UNIVERSION.split('.')])
@@ -24,6 +24,9 @@ GROUP_ESCAPES = frozenset([ord(x) for x in '-&[\\]^|~'])
 # Compatibility
 PY3 = sys.version_info >= (3, 0) and sys.version_info[0:2] < (4, 0)
 PY34 = sys.version_info >= (3, 4)
+PY35 = sys.version_info >= (3, 5)
+PY37 = sys.version_info >= (3, 7)
+
 if NARROW:
     UNICODE_RANGE = (0x0000, 0xFFFF)
 else:
@@ -243,7 +246,7 @@ def gen_blocks(output, ascii_props=False, append=False, prefix=""):
 
 
 def gen_ccc(output, ascii_props=False, append=False, prefix=""):
-    """Generate canonical combining class."""
+    """Generate `canonical combining class` property."""
 
     obj = {}
     with open(os.path.join(HOME, 'unicodedata', UNIVERSION, 'DerivedCombiningClass.txt'), 'r') as uf:
@@ -295,7 +298,7 @@ def gen_scripts(
     file_name, file_name_ext, obj_name, obj_ext_name, output, output_ext,
     field=1, notexplicit=None, ascii_props=False, append=False, prefix=""
 ):
-    """Generate generic enum."""
+    """Generate `script` property."""
 
     obj = {}
     obj2 = {}
@@ -437,7 +440,7 @@ def gen_enum(file_name, obj_name, output, field=1, notexplicit=None, ascii_props
 
 
 def gen_age(output, ascii_props=False, append=False, prefix=""):
-    """Generate Age."""
+    """Generate `age` property."""
 
     obj = {}
     all_chars = ALL_ASCII if ascii_props else ALL_CHARS
@@ -487,7 +490,7 @@ def gen_age(output, ascii_props=False, append=False, prefix=""):
 
 
 def gen_nf_quick_check(output, ascii_props=False, append=False, prefix=""):
-    """Generate binary properties."""
+    """Generate quick check properties."""
 
     categories = []
     nf = {}
@@ -636,7 +639,7 @@ def gen_binary(table, output, ascii_props=False, append=False, prefix=""):
 
 
 def gen_bidi(output, ascii_props=False, append=False, prefix=""):
-    """Generate bidi class properties."""
+    """Generate `bidi class` property."""
 
     bidi_class = {}
     max_range = MAXASCII if ascii_props else MAXUNICODE
@@ -671,51 +674,6 @@ def gen_bidi(output, ascii_props=False, append=False, prefix=""):
         count = len(bidi_class) - 1
         i = 0
         for k1, v1 in sorted(bidi_class.items()):
-            f.write('    "%s": "%s"' % (k1, v1))
-            if i == count:
-                f.write('\n}\n')
-            else:
-                f.write(',\n')
-            i += 1
-
-
-def gen_bidi_paired_bracket_type(output, ascii_props=False, append=False, prefix=''):
-    """Generate bide paired bracket type properties."""
-
-    bpt_class = {}
-    max_range = MAXASCII if ascii_props else MAXUNICODE
-    with open(os.path.join(HOME, 'unicodedata', UNIVERSION, 'BidiBrackets.txt'), 'r') as uf:
-        for line in uf:
-            if not line.startswith('#'):
-                data = line.split('#')[0].strip().split(';')
-                if len(data) == 3:
-                    value = int(data[0].strip(), 16)
-                    bracket_type = data[2].strip()
-
-                    if bracket_type not in bpt_class:
-                        bpt_class[bracket_type] = []
-
-                    if value > max_range:
-                        continue
-
-                    bpt_class[bracket_type].append(value)
-
-    for name in list(bpt_class.keys()):
-        s = set(bpt_class[name])
-        bpt_class[name] = sorted(s)
-
-    not_explicitly_defined(bpt_class, 'n', binary=ascii_props)
-
-    # Convert characters values to ranges
-    char2range(bpt_class, binary=ascii_props)
-
-    with codecs.open(output, 'a' if append else 'w', 'utf-8') as f:
-        if not append:
-            f.write(HEADER)
-        f.write('%s_bidi_paired_bracket_type = {\n' % prefix)
-        count = len(bpt_class) - 1
-        i = 0
-        for k1, v1 in sorted(bpt_class.items()):
             f.write('    "%s": "%s"' % (k1, v1))
             if i == count:
                 f.write('\n}\n')
@@ -949,7 +907,7 @@ def gen_alias(enum, binary, output, ascii_props=False, append=False, prefix=""):
                 line_re = re.compile(r'%s\s*;' % m.group(2), re.I)
             if gather and line_re.match(line):
                 data = [format_name(x) for x in line.split('#')[0].split(';')]
-                if current_category in ('sc', 'blk', 'dt', 'jg', 'sb', 'wb', 'lb', 'gcb', 'nt'):
+                if current_category in ('sc', 'blk', 'dt', 'jg', 'sb', 'wb', 'lb', 'gcb', 'nt', 'inpc', 'inmc', 'insc'):
                     data[1], data[2] = data[2], data[1]
                 elif current_category == 'age' and UNIVERSION_INFO < (6, 1, 0):
                     if data[2] == 'unassigned':
@@ -1045,8 +1003,15 @@ def gen_properties(output, ascii_props=False, append=False):
 
     if PY3:
         files['scx'] = os.path.join(output, 'scriptextensions.py')
-    if PY34:
-        files['bpt'] = os.path.join(output, 'bidipairedbrackettype.py')
+        files['insc'] = os.path.join(output, 'indicsyllabiccategory.py')
+        if PY34:
+            files['bpt'] = os.path.join(output, 'bidipairedbrackettype.py')
+        if PY35:
+            files['inpc'] = os.path.join(output, 'indicpositionalcategory.py')
+        else:
+            files['inmc'] = os.path.join(output, 'indicmatracategory.py')
+        if PY37:
+            files['vo'] = os.path.join(output, 'verticalorientation.py')
 
     prefix = "ascii" if ascii_props else 'unicode'
 
@@ -1063,8 +1028,15 @@ def gen_properties(output, ascii_props=False, append=False):
     ]
     if PY3:
         categories.append('scriptextensions')
-    if PY34:
-        categories.append('bidipairedbrackettype')
+        categories.append('indicsyllabiccategory')
+        if PY34:
+            categories.append('bidipairedbrackettype')
+        if PY35:
+            categories.append('indicpositionalcategory')
+        else:
+            categories.append('indicmatracategory')
+        if PY37:
+            categories.append('verticalorientation')
     if ascii_props:
         print('=========Ascii Tables=========')
     else:
@@ -1123,7 +1095,10 @@ def gen_properties(output, ascii_props=False, append=False):
 
     if PY34:
         print('Building: Bidi Paired Bracket Type')
-        gen_bidi_paired_bracket_type(files['bpt'], ascii_props, append, prefix)
+        gen_enum(
+            'BidiBrackets.txt', 'bidi_paired_bracket_type', files['bpt'], notexplicit='n',
+            field=2, ascii_props=ascii_props, append=append, prefix=prefix
+        )
 
     # Generate Unicode binary
     print('Building: Binary')
@@ -1166,6 +1141,25 @@ def gen_properties(output, ascii_props=False, append=False):
         ascii_props=ascii_props, append=append, prefix=prefix
     )
 
+    if PY3:
+        if PY35:
+            print('Building: Indic Positional Category')
+            gen_enum(
+                'IndicPositionalCategory.txt', 'indic_positional_category', files['inpc'], notexplicit='na',
+                ascii_props=ascii_props, append=append, prefix=prefix
+            )
+        else:
+            print('Building: Indic Matra Category')
+            gen_enum(
+                'IndicMatraCategory.txt', 'indic_matra_category', files['inmc'], notexplicit='na',
+                ascii_props=ascii_props, append=append, prefix=prefix
+            )
+        print('Building: Indic Syllabic Category')
+        gen_enum(
+            'IndicSyllabicCategory.txt', 'indic_syllabic_category', files['insc'], notexplicit='other',
+            ascii_props=ascii_props, append=append, prefix=prefix
+        )
+
     print('Building: Hangul Syllable Type')
     gen_enum(
         'HangulSyllableType.txt', 'hangul_syllable_type', files['hst'], notexplicit='na',
@@ -1207,6 +1201,13 @@ def gen_properties(output, ascii_props=False, append=False):
 
     print('Building: NF* Quick Check')
     categories.extend(gen_nf_quick_check(files['qc'], ascii_props, append, prefix))
+
+    if PY37:
+        print('Building: Vertical Orientation')
+        gen_enum(
+            'VerticalOrientation.txt', 'vertical_orientation', files['vo'], notexplicit='R',
+            ascii_props=ascii_props, append=append, prefix=prefix
+        )
 
     if not ascii_props:
         print('Building: Aliases')
