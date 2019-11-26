@@ -6,6 +6,7 @@ Copyright (c) 2015 - 2018 Isaac Muse <isaacmuse@gmail.com>
 """
 import sys
 import struct
+import warnings
 
 PY2 = (2, 0) <= sys.version_info < (3, 0)
 PY3 = (3, 0) <= sys.version_info < (4, 0)
@@ -182,3 +183,13 @@ class Immutable(object):
         """Prevent mutability."""
 
         raise AttributeError('Class is immutable!')
+
+
+def warn_deprecated(message, stacklevel=2):  # pragma: no cover
+    """Warn deprecated."""
+
+    warnings.warn(
+        message,
+        category=DeprecationWarning,
+        stacklevel=stacklevel
+    )

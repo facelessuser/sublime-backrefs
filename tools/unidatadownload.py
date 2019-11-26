@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 import sys
 import os
 import zipfile
+import codecs
 
 __version__ = '2.2.0'
 
@@ -111,7 +112,7 @@ def download_unicodedata(version, output=HOME, no_zip=False):
                 except Exception:
                     print('Failed: %s' % url)
                     continue
-                with open(file_location, 'w') as uf:
+                with codecs.open(file_location, 'w', encoding='utf-8') as uf:
                     uf.write(data.decode('utf-8'))
                 retrieved = True
                 break
@@ -158,4 +159,4 @@ if __name__ == '__main__':
     else:
         version = args.unicode_version
 
-    get_unicodedata(version, args.output)
+    get_unicodedata(version, output=args.output)
