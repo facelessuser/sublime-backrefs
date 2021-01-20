@@ -1,5 +1,4 @@
 """Unicode Properties from Unicode version 6.1.0 (autogen)."""
-from __future__ import unicode_literals
 
 unicode_numeric_type = {
     "^decimal": "\x00-\x2f\x3a-\u065f\u066a-\u06ef\u06fa-\u07bf\u07ca-\u0965\u0970-\u09e5\u09f0-\u0a65\u0a70-\u0ae5\u0af0-\u0b65\u0b70-\u0be5\u0bf0-\u0c65\u0c70-\u0ce5\u0cf0-\u0d65\u0d70-\u0e4f\u0e5a-\u0ecf\u0eda-\u0f1f\u0f2a-\u103f\u104a-\u108f\u109a-\u17df\u17ea-\u180f\u181a-\u1945\u1950-\u19cf\u19da-\u1a7f\u1a8a-\u1a8f\u1a9a-\u1b4f\u1b5a-\u1baf\u1bba-\u1c3f\u1c4a-\u1c4f\u1c5a-\ua61f\ua62a-\ua8cf\ua8da-\ua8ff\ua90a-\ua9cf\ua9da-\uaa4f\uaa5a-\uabef\uabfa-\uff0f\uff1a-\U0001049f\U000104aa-\U00011065\U00011070-\U000110ef\U000110fa-\U00011135\U00011140-\U000111cf\U000111da-\U000116bf\U000116ca-\U0001d7cd\U0001d800-\U0010ffff",

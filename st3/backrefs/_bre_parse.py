@@ -2,14 +2,15 @@
 Backrefs Re parser.
 
 Licensed under MIT
-Copyright (c) 2011 - 2019 Isaac Muse <isaacmuse@gmail.com>
+Copyright (c) 2011 - 2020 Isaac Muse <isaacmuse@gmail.com>
 """
-from __future__ import unicode_literals
 import re as _re
+import copyreg as _copyreg
 from . import util as _util
 import sre_parse as _sre_parse
 import unicodedata as _unicodedata
 from . import uniprops as _uniprops
+from . import util
 
 __all__ = ("ReplaceTemplate",)
 
@@ -32,10 +33,7 @@ _STANDARD_ESCAPES = frozenset(('a', 'b', 'f', 'n', 'r', 't', 'v'))
 _CURLY_BRACKETS = frozenset(('{', '}'))
 _PROPERTY_STRIP = frozenset((' ', '-', '_'))
 _PROPERTY = _WORD | _DIGIT | _PROPERTY_STRIP
-if _util.PY3:
-    _GLOBAL_FLAGS = frozenset(('a', 'u', 'L'))
-else:
-    _GLOBAL_FLAGS = frozenset(('u', 'L'))
+_GLOBAL_FLAGS = frozenset(('a', 'u', 'L'))
 _SCOPED_FLAGS = frozenset(('i', 'm', 's', 'u', 'x'))
 
 _CURLY_BRACKETS_ORD = frozenset((0x7b, 0x7d))
@@ -56,7 +54,7 @@ _BACK_SLASH_TRANSLATION = {
     "\\\\": '\\'
 }
 
-_FMT_CONV_TYPE = ('a', 'r', 's') if _util.PY3 else ('r', 's')
+_FMT_CONV_TYPE = ('a', 'r', 's')
 
 _MSG_DEPRECATE_CASE = (
     "The search back reference '{}' at position {} has been deprecated, please use the posix '{}'. "
@@ -75,7 +73,7 @@ class GlobalRetryException(Exception):
 class _SearchParser(object):
     """Search Template."""
 
-    _new_refs = ("e", "l", "L", "c", "C", "p", "P", "N", "Q", "E", "m", "M", "R", "X")
+    _new_refs = ("c", "C", "e", "E", "h", "l", "L", "m", "M", "N", "p", "P", "Q", "R", "X")
     _re_escape = r"\x1b"
     _re_start_wb = r"\b(?=\w)"
     _re_end_wb = r"\b(?<=\w)"
@@ -86,7 +84,7 @@ class _SearchParser(object):
     def __init__(self, search, re_verbose=False, re_unicode=None):
         """Initialize."""
 
-        if isinstance(search, _util.binary_type):
+        if isinstance(search, bytes):
             self.is_bytes = True
         else:
             self.is_bytes = False
@@ -169,7 +167,7 @@ class _SearchParser(object):
         """Analyze flags."""
 
         global_retry = False
-        if _util.PY3 and ('a' in text or 'L' in text) and self.unicode:
+        if ('a' in text or 'L' in text) and self.unicode:
             self.unicode = False
             if not _SCOPED_FLAG_SUPPORT or not scoped:
                 self.temp_global_flag_swap["unicode"] = True
@@ -244,49 +242,6 @@ class _SearchParser(object):
 
         return ''.join(value)
 
-    def get_wide_unicode(self, i):
-        """Get narrow Unicode."""
-
-        value = []
-        for x in range(3):
-            c = next(i)
-            if c == '0':
-                value.append(c)
-            else:  # pragma: no cover
-                raise SyntaxError('Invalid wide Unicode character at %d!' % (i.index - 1))
-
-        c = next(i)
-        if c in ('0', '1'):
-            value.append(c)
-        else:  # pragma: no cover
-            raise SyntaxError('Invalid wide Unicode character at %d!' % (i.index - 1))
-
-        for x in range(4):
-            c = next(i)
-            if c.lower() in _HEX:
-                value.append(c)
-            else:  # pragma: no cover
-                raise SyntaxError('Invalid wide Unicode character at %d!' % (i.index - 1))
-        return ''.join(value)
-
-    def get_narrow_unicode(self, i):
-        """Get narrow Unicode."""
-
-        value = []
-        for x in range(4):
-            c = next(i)
-            if c.lower() in _HEX:
-                value.append(c)
-            else:  # pragma: no cover
-                raise SyntaxError('Invalid Unicode character at %d!' % (i.index - 1))
-        return ''.join(value)
-
-    def get_unicode(self, i, wide=False):
-        """Get Unicode character."""
-
-        value = int(self.get_wide_unicode(i) if wide else self.get_narrow_unicode(i), 16)
-        return ('\\%03o' % value) if value <= 0xFF else _util.uchr(value)
-
     def reference(self, t, i, in_group=False):
         """Handle references."""
 
@@ -304,6 +259,9 @@ class _SearchParser(object):
             current.extend(self._grapheme_cluster % (no_mark, mark, mark))
         elif t == "e":
             current.append(self._re_escape)
+        elif t == "h":
+            current.extend(self.horizontal_ws_prop(in_group))
+            self.found_property = True
         elif t == "l":
             current.extend(self.letter_case_props(_LOWER, in_group))
             self.found_property = True
@@ -320,10 +278,6 @@ class _SearchParser(object):
             current.extend(self.letter_case_props(_UPPER, in_group, negate=True))
             self.found_property = True
             util.warn_deprecated(_MSG_DEPRECATE_CASE.format('\\l', i.index - 2, "'[:^upper:]'"))
-        elif _util.PY2 and not self.binary and t == "U":
-            current.append(self.get_unicode(i, True))
-        elif _util.PY2 and not self.binary and t == "u":
-            current.append(self.get_unicode(i))
         elif t == 'p':
             prop = self.get_unicode_property(i)
             current.extend(self.unicode_props(prop[0], prop[1], in_group=in_group))
@@ -559,9 +513,9 @@ class _SearchParser(object):
             if value == '[]':
                 # We specified some properties, but they are all
                 # out of reach.  Therefore we can match nothing.
-                current = ['[^%s]' % ('\x00-\xff' if self.is_bytes else _uniprops.UNICODE_RANGE)]
+                current = ['[^%s]' % (_uniprops.ASCII_RANGE if self.is_bytes else _uniprops.UNICODE_RANGE)]
             elif value == '[^]':
-                current = ['[%s]' % ('\x00-\xff' if self.is_bytes else _uniprops.UNICODE_RANGE)]
+                current = ['[%s]' % (_uniprops.ASCII_RANGE if self.is_bytes else _uniprops.UNICODE_RANGE)]
             else:
                 current = [value]
 
@@ -600,31 +554,31 @@ class _SearchParser(object):
         try:
             if self.is_bytes or not self.unicode:
                 pattern = _uniprops.get_posix_property(
-                    prop, (_uniprops.POSIX_BYTES if self.is_bytes else _uniprops.POSIX)
+                    prop, (_uniprops.POSIX_ASCII if self.is_bytes else _uniprops.POSIX)
                 )
             else:
                 pattern = _uniprops.get_posix_property(prop, _uniprops.POSIX_UNICODE)
         except Exception:
             raise ValueError('Invalid POSIX property!')
         if not in_group and not pattern:  # pragma: no cover
-            pattern = '^%s' % ('\x00-\xff' if self.is_bytes else _uniprops.UNICODE_RANGE)
+            pattern = '^%s' % (_uniprops.ASCII_RANGE if self.is_bytes else _uniprops.UNICODE_RANGE)
 
         return [pattern]
 
     def unicode_name(self, name, in_group=False):
         """Insert Unicode value by its name."""
 
-        value = _util.uord(_unicodedata.lookup(name))
+        value = ord(_unicodedata.lookup(name))
         if (self.is_bytes and value > 0xFF):
             value = ""
         if not in_group and value == "":
-            return '[^%s]' % ('\x00-\xff' if self.is_bytes else _uniprops.UNICODE_RANGE)
+            return '[^%s]' % (_uniprops.ASCII_RANGE if self.is_bytes else _uniprops.UNICODE_RANGE)
         elif value == "":
             return value
         else:
-            return ['\\%03o' % value if value <= 0xFF else _util.uchr(value)]
+            return ['\\%03o' % value if value <= 0xFF else chr(value)]
 
-    def unicode_props(self, props, value, in_group=False, negate=False):
+    def unicode_props(self, props, prop_value, in_group=False, negate=False):
         """
         Insert Unicode properties.
 
@@ -632,39 +586,30 @@ class _SearchParser(object):
         Case doesn't matter and `[ -_]` will be stripped out.
         """
 
-        # `'GC = Some_Unpredictable-Category Name' -> 'gc=someunpredictablecategoryname'`
-        category = None
-
-        # `\p{^negated}` Strip off the caret after evaluation.
         if props.startswith("^"):
-            negate = not negate
-        if props.startswith("^"):
-            props = props[1:]
+            if negate:
+                props = props[1:]
+        elif negate:
+            props = '^' + props
+        if not prop_value and prop_value is not None:
+            prop_value = None
 
-        # Get the property and value.
-        # If a property is present and not block,
-        # we can assume `GC` as that is all we support.
-        # If we are wrong it will fail.
-        if value:
-            if _uniprops.is_enum(props):
-                category = props
-                props = value
-            elif value in ('y', 'yes', 't', 'true'):
-                category = 'binary'
-            elif value in ('n', 'no', 'f', 'false'):
-                category = 'binary'
-                negate = not negate
-            else:
-                raise ValueError('Invalid Unicode property!')
-
-        v = _uniprops.get_unicode_property(("^" if negate else "") + props, category, self.is_bytes)
+        v = _uniprops.get_unicode_property(props, prop_value, self.is_bytes)
         if not in_group:
             if not v:
-                v = '^%s' % ('\x00-\xff' if self.is_bytes else _uniprops.UNICODE_RANGE)
+                v = '^%s' % (_uniprops.ASCII_RANGE if self.is_bytes else _uniprops.UNICODE_RANGE)
             v = "[%s]" % v
         properties = [v]
 
         return properties
+
+    def horizontal_ws_prop(self, in_group):
+        """Horizontal white space is treated as `[[:blank:]]`."""
+
+        v = self.posix_props("blank", in_group=in_group)
+        if not in_group:
+            v[0] = "[%s]" % v[0]
+        return v
 
     def letter_case_props(self, case, in_group, negate=False):
         """Insert letter (ASCII or Unicode) case properties."""
@@ -704,11 +649,8 @@ class _SearchParser(object):
             "unicode": False,
             "verbose": False
         }
-        if _util.PY3:
-            self.ascii = self.re_unicode is not None and not self.re_unicode
-        else:
-            self.ascii = False
-        if _util.PY3 and not self.unicode and not self.ascii:
+        self.ascii = self.re_unicode is not None and not self.re_unicode
+        if not self.unicode and not self.ascii:
             self.unicode = True
 
         new_pattern = []
@@ -810,7 +752,7 @@ class _ReplaceParser(object):
                 # Try and covert to integer index
                 field = ''.join(value).strip()
                 try:
-                    value = [(_util.FMT_FIELD, _util.string_type(int(field, 10)))]
+                    value = [(_util.FMT_FIELD, str(int(field, 10)))]
                 except ValueError:
                     value = [(_util.FMT_FIELD, field)]
                     pass
@@ -974,16 +916,16 @@ class _ReplaceParser(object):
         else:
             single = self.get_single_stack()
             if self.span_stack:
-                text = self.convert_case(_util.uchr(value), self.span_stack[-1])
-                value = _util.uord(self.convert_case(text, single)) if single is not None else _util.uord(text)
+                text = self.convert_case(chr(value), self.span_stack[-1])
+                value = ord(self.convert_case(text, single)) if single is not None else ord(text)
             elif single:
-                value = _util.uord(self.convert_case(_util.uchr(value), single))
+                value = ord(self.convert_case(chr(value), single))
             if self.use_format and value in _CURLY_BRACKETS_ORD:
-                self.handle_format(_util.uchr(value), i)
+                self.handle_format(chr(value), i)
             elif value <= 0xFF:
                 self.result.append('\\%03o' % value)
             else:
-                self.result.append(_util.uchr(value))
+                self.result.append(chr(value))
 
     def get_named_unicode(self, i):
         """Get named Unicode."""
@@ -1005,19 +947,19 @@ class _ReplaceParser(object):
     def parse_named_unicode(self, i):
         """Parse named Unicode."""
 
-        value = _util.uord(_unicodedata.lookup(self.get_named_unicode(i)))
+        value = ord(_unicodedata.lookup(self.get_named_unicode(i)))
         single = self.get_single_stack()
         if self.span_stack:
-            text = self.convert_case(_util.uchr(value), self.span_stack[-1])
-            value = _util.uord(self.convert_case(text, single)) if single is not None else _util.uord(text)
+            text = self.convert_case(chr(value), self.span_stack[-1])
+            value = ord(self.convert_case(text, single)) if single is not None else ord(text)
         elif single:
-            value = _util.uord(self.convert_case(_util.uchr(value), single))
+            value = ord(self.convert_case(chr(value), single))
         if self.use_format and value in _CURLY_BRACKETS_ORD:
-            self.handle_format(_util.uchr(value), i)
+            self.handle_format(chr(value), i)
         elif value <= 0xFF:
             self.result.append('\\%03o' % value)
         else:
-            self.result.append(_util.uchr(value))
+            self.result.append(chr(value))
 
     def get_wide_unicode(self, i):
         """Get narrow Unicode."""
@@ -1063,16 +1005,16 @@ class _ReplaceParser(object):
         value = int(text, 16)
         single = self.get_single_stack()
         if self.span_stack:
-            text = self.convert_case(_util.uchr(value), self.span_stack[-1])
-            value = _util.uord(self.convert_case(text, single)) if single is not None else _util.uord(text)
+            text = self.convert_case(chr(value), self.span_stack[-1])
+            value = ord(self.convert_case(text, single)) if single is not None else ord(text)
         elif single:
-            value = _util.uord(self.convert_case(_util.uchr(value), single))
+            value = ord(self.convert_case(chr(value), single))
         if self.use_format and value in _CURLY_BRACKETS_ORD:
-            self.handle_format(_util.uchr(value), i)
+            self.handle_format(chr(value), i)
         elif value <= 0xFF:
             self.result.append('\\%03o' % value)
         else:
-            self.result.append(_util.uchr(value))
+            self.result.append(chr(value))
 
     def get_byte(self, i):
         """Get byte."""
@@ -1093,11 +1035,11 @@ class _ReplaceParser(object):
         single = self.get_single_stack()
         if self.span_stack:
             text = self.convert_case(chr(value), self.span_stack[-1])
-            value = _util.uord(self.convert_case(text, single)) if single is not None else _util.uord(text)
+            value = ord(self.convert_case(text, single)) if single is not None else ord(text)
         elif single:
-            value = _util.uord(self.convert_case(chr(value), single))
+            value = ord(self.convert_case(chr(value), single))
         if self.use_format and value in _CURLY_BRACKETS_ORD:
-            self.handle_format(_util.uchr(value), i)
+            self.handle_format(chr(value), i)
         else:
             self.result.append('\\%03o' % value)
 
@@ -1166,17 +1108,17 @@ class _ReplaceParser(object):
             if value > 0xFF and self.is_bytes:
                 # Re fails on octal greater than `0o377` or `0xFF`
                 raise ValueError("octal escape value outside of range 0-0o377!")
-            value = _util.uchr(value)
+            value = chr(value)
         elif t in _STANDARD_ESCAPES or t == '\\':
             value = _BACK_SLASH_TRANSLATION['\\' + t]
         elif not self.is_bytes and t == "U":
-            value = _util.uchr(int(self.get_wide_unicode(i), 16))
+            value = chr(int(self.get_wide_unicode(i), 16))
         elif not self.is_bytes and t == "u":
-            value = _util.uchr(int(self.get_narrow_unicode(i), 16))
+            value = chr(int(self.get_narrow_unicode(i), 16))
         elif not self.is_bytes and t == "N":
             value = _unicodedata.lookup(self.get_named_unicode(i))
         elif t == "x":
-            value = _util.uchr(int(self.get_byte(i), 16))
+            value = chr(int(self.get_byte(i), 16))
         else:
             i.rewind(1)
             value = '\\'
@@ -1347,12 +1289,12 @@ class _ReplaceParser(object):
         # Handle auto incrementing group indexes
         if field == '':
             if self.auto:
-                field = _util.string_type(self.auto_index)
+                field = str(self.auto_index)
                 text[0] = (_util.FMT_FIELD, field)
                 self.auto_index += 1
             elif not self.manual and not self.auto:
                 self.auto = True
-                field = _util.string_type(self.auto_index)
+                field = str(self.auto_index)
                 text[0] = (_util.FMT_FIELD, field)
                 self.auto_index += 1
             else:
@@ -1404,11 +1346,11 @@ class _ReplaceParser(object):
     def parse(self, pattern, template, use_format=False):
         """Parse template."""
 
-        if isinstance(template, _util.binary_type):
+        if isinstance(template, bytes):
             self.is_bytes = True
         else:
             self.is_bytes = False
-        if isinstance(pattern.pattern, _util.binary_type) != self.is_bytes:
+        if isinstance(pattern.pattern, bytes) != self.is_bytes:
             raise TypeError('Pattern string type must match replace template string type!')
         self._original = template
         self.use_format = use_format
@@ -1520,7 +1462,7 @@ class ReplaceTemplate(_util.Immutable):
             raise ValueError("Match is None!")
 
         sep = m.string[:0]
-        if isinstance(sep, _util.binary_type) != self._bytes:
+        if isinstance(sep, bytes) != self._bytes:
             raise TypeError('Match string type does not match expander string type!')
         text = []
         # Expand string
@@ -1542,7 +1484,7 @@ class ReplaceTemplate(_util.Immutable):
                         obj = m.group(g_index)
                     except IndexError:  # pragma: no cover
                         raise IndexError("'%d' is out of range!" % g_index)
-                    l = _util.format(m, obj, capture, self._bytes)
+                    l = _util.format_string(m, obj, capture, self._bytes)
                 if span_case is not None:
                     if span_case == _LOWER:
                         l = l.lower()
@@ -1564,4 +1506,4 @@ def _pickle(r):
     return ReplaceTemplate, (r.groups, r.group_slots, r.literals, r.pattern_hash, r.use_format, r._bytes)
 
 
-_util.copyreg.pickle(ReplaceTemplate, _pickle)
+_copyreg.pickle(ReplaceTemplate, _pickle)

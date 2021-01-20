@@ -1,5 +1,4 @@
 """Unicode Properties from Unicode version 6.1.0 (autogen)."""
-from __future__ import unicode_literals
 
 from .age import *  # noqa
 from .alias import *  # noqa

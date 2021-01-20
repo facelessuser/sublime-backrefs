@@ -1,5 +1,4 @@
 """Unicode Properties from Unicode version 6.1.0 (autogen)."""
-from __future__ import unicode_literals
 
 unicode_numeric_values = {
     "0": "\x30\u0660\u06f0\u07c0\u0966\u09e6\u0a66\u0ae6\u0b66\u0be6\u0c66\u0c78\u0ce6\u0d66\u0e50\u0ed0\u0f20\u1040\u1090\u17e0\u17f0\u1810\u1946\u19d0\u1a80\u1a90\u1b50\u1bb0\u1c40\u1c50\u2070\u2080\u2189\u24ea\u24ff\u3007\u96f6\ua620\ua6ef\ua8d0\ua900\ua9d0\uaa50\uabf0\uf9b2\uff10\U0001018a\U000104a0\U00011066\U000110f0\U00011136\U000111d0\U000116c0\U0001d7ce\U0001d7d8\U0001d7e2\U0001d7ec\U0001d7f6\U0001f100-\U0001f101",

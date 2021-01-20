@@ -1,58 +1,28 @@
-"""
-Generate a Unicode prop table for Python narrow and wide builds.
-
-Narrow builds will stop at `0xffff`.
-"""
-from __future__ import unicode_literals
+"""Generate a Unicode prop table for Python builds."""
 import sys
-import struct
 import unicodedata
 import codecs
 import os
 import re
 
-__version__ = '4.2.0'
+__version__ = '5.0.0'
 
 UNIVERSION = None
 UNIVERSION_INFO = None
 HOME = os.path.dirname(os.path.abspath(__file__))
 MAXUNICODE = sys.maxunicode
 MAXASCII = 0xFF
-NARROW = sys.maxunicode == 0xFFFF
 GROUP_ESCAPES = frozenset([ord(x) for x in '-&[\\]^|~'])
 
-# Compatibility
-PY3 = sys.version_info >= (3, 0) and sys.version_info[0:2] < (4, 0)
-PY34 = sys.version_info >= (3, 4)
-PY35 = sys.version_info >= (3, 5)
-PY37 = sys.version_info >= (3, 7)
-
-if NARROW:
-    UNICODE_RANGE = (0x0000, 0xFFFF)
-else:
-    UNICODE_RANGE = (0x0000, 0x10FFFF)
+UNICODE_RANGE = (0x0000, 0x10FFFF)
 ASCII_RANGE = (0x00, 0xFF)
-if PY3:
-    unichar = chr  # noqa
-else:
-    unichar = unichr  # noqa
 
 ALL_CHARS = set([x for x in range(UNICODE_RANGE[0], UNICODE_RANGE[1] + 1)])
 ALL_ASCII = set([x for x in range(ASCII_RANGE[0], ASCII_RANGE[1] + 1)])
 HEADER = '''\
-"""Unicode Properties from Unicode version %s (autogen)."""
-from __future__ import unicode_literals
+"""Unicode Properties from Unicode version {} (autogen)."""
 
-''' % UNIVERSION
-
-
-def uchr(i):
-    """Allow getting Unicode character on narrow Python builds."""
-
-    try:
-        return unichar(i)
-    except ValueError:
-        return struct.pack('i', i).decode('utf-32')
+'''
 
 
 def uniformat(value):
@@ -96,17 +66,13 @@ def create_span(unirange, is_bytes=False):
             return None
         if unirange[1] > MAXASCII:
             unirange[1] = MAXASCII
-    elif NARROW:
-        if unirange[0] > MAXUNICODE:
-            return None
-        if unirange[1] > MAXUNICODE:
-            unirange[1] = MAXUNICODE
     return [x for x in range(unirange[0], unirange[1] + 1)]
 
 
 def not_explicitly_defined(table, name, is_bytes=False):
     """Compose a table with the specified entry name of values not explicitly defined."""
 
+    name = name.lower()
     all_chars = ALL_ASCII if is_bytes else ALL_CHARS
     s = set()
     for k, v in table.items():
@@ -184,15 +150,126 @@ def char2range(d, is_bytes=False, invert=True):
                 d[k1[1:] if inverted else '^' + k1] = ''.join(iv2)
 
 
-def gen_blocks(output, ascii_props=False, append=False, prefix=""):
+def get_files(output):
+    """Get files."""
+
+    files = {
+        'gc': os.path.join(output, 'generalcategory.py'),
+        'blk': os.path.join(output, 'block.py'),
+        'sc': os.path.join(output, 'script.py'),
+        'bc': os.path.join(output, 'bidiclass.py'),
+        'binary': os.path.join(output, 'binary.py'),
+        'posix': os.path.join(output, 'posix.py'),
+        'age': os.path.join(output, 'age.py'),
+        'ea': os.path.join(output, 'eastasianwidth.py'),
+        'gcb': os.path.join(output, 'graphemeclusterbreak.py'),
+        'lb': os.path.join(output, 'linebreak.py'),
+        'sb': os.path.join(output, 'sentencebreak.py'),
+        'wb': os.path.join(output, 'wordbreak.py'),
+        'hst': os.path.join(output, 'hangulsyllabletype.py'),
+        'dt': os.path.join(output, 'decompositiontype.py'),
+        'jt': os.path.join(output, 'joiningtype.py'),
+        'jg': os.path.join(output, 'joininggroup.py'),
+        'nt': os.path.join(output, 'numerictype.py'),
+        'nv': os.path.join(output, 'numericvalue.py'),
+        'ccc': os.path.join(output, 'canonicalcombiningclass.py'),
+        'qc': os.path.join(output, 'quickcheck.py'),
+        'alias': os.path.join(output, 'alias.py')
+    }
+
+    files['scx'] = os.path.join(output, 'scriptextensions.py')
+    files['insc'] = os.path.join(output, 'indicsyllabiccategory.py')
+    if UNIVERSION_INFO >= (6, 3, 0):
+        files['bpt'] = os.path.join(output, 'bidipairedbrackettype.py')
+    if UNIVERSION_INFO >= (8, 0, 0):
+        files['inpc'] = os.path.join(output, 'indicpositionalcategory.py')
+    else:
+        files['inmc'] = os.path.join(output, 'indicmatracategory.py')
+
+    if UNIVERSION_INFO >= (11, 0, 0):
+        files['vo'] = os.path.join(output, 'verticalorientation.py')
+
+    return files
+
+
+def discover_categories():
+    """Discover the categories we need."""
+
+    categories = [
+        'generalcategory', 'script', 'block',
+        'bidiclass', 'eastasianwidth', 'linebreak',
+        'hangulsyllabletype', 'wordbreak', 'sentencebreak',
+        'graphemeclusterbreak', 'decompositiontype', 'joiningtype',
+        'joininggroup', 'numerictype', 'numericvalue',
+        'canonicalcombiningclass', 'age'
+    ]
+
+    categories.append('scriptextensions')
+    categories.append('indicsyllabiccategory')
+    if UNIVERSION_INFO >= (6, 3, 0):
+        categories.append('bidipairedbrackettype')
+    if UNIVERSION_INFO >= (8, 0, 0):
+        categories.append('indicpositionalcategory')
+    else:
+        categories.append('indicmatracategory')
+    if UNIVERSION_INFO >= (11, 0, 0):
+        categories.append('verticalorientation')
+
+    binary_categories = ['fullcompositionexclusion', 'compositionexclusion', 'bidimirrored']
+
+    # NF Quick Check categories
+    file_name = os.path.join(HOME, 'unicodedata', UNIVERSION, 'DerivedNormalizationProps.txt')
+    with codecs.open(file_name, 'r', 'utf-8') as uf:
+        for line in uf:
+            if not line.startswith('#'):
+                data = line.split('#')[0].split(';')
+                if len(data) < 2:
+                    continue
+                if not data[1].strip().lower().endswith('_qc'):
+                    continue
+                span = create_span([int(i, 16) for i in data[0].strip().split('..')], is_bytes=False)
+                if span is None:
+                    continue
+                name = format_name(data[1][:-3] + 'quickcheck')
+
+                if name not in categories:
+                    categories.append(name)
+
+    binary_props = [
+        ('DerivedCoreProperties.txt', None),
+        ('PropList.txt', None),
+        ('DerivedNormalizationProps.txt', ('Changes_When_NFKC_Casefolded', 'Full_Composition_Exclusion'))
+    ]
+
+    if UNIVERSION_INFO >= (13, 0, 0):
+        binary_props.append(('emoji-data.txt', None))
+
+    for filename, include in binary_props:
+        with codecs.open(os.path.join(HOME, 'unicodedata', UNIVERSION, filename), 'r', 'utf-8') as uf:
+            for line in uf:
+                if not line.startswith('#'):
+                    data = line.split('#')[0].split(';')
+                    if len(data) < 2:
+                        continue
+                    if include and data[1].strip() not in include:
+                        continue
+                    name = format_name(data[1])
+
+                    if name not in binary_categories:
+                        binary_categories.append(name)
+    return categories, binary_categories
+
+
+def gen_blocks(output, ascii_props=False, append=False, prefix="", aliases=None):
     """Generate Unicode blocks."""
 
     with codecs.open(output, 'a' if append else 'w', 'utf-8') as f:
         if not append:
-            f.write(HEADER)
+            f.write(HEADER.format(UNIVERSION))
         f.write('%s_blocks = {' % prefix)
         no_block = []
         last = -1
+        found = set(['noblock'])
 
         max_range = MAXASCII if ascii_props else MAXUNICODE
         formatter = bytesformat if ascii_props else uniformat
@@ -210,6 +287,7 @@ def gen_blocks(output, ascii_props=False, append=False, prefix=""):
                             no_block.append((last + 1, endval))
                     last = block[1]
                     name = format_name(data[1])
+                    found.add(name)
                     inverse_range = []
                     if block[0] > max_range:
                         if ascii_props:
@@ -222,6 +300,12 @@ def gen_blocks(output, ascii_props=False, append=False, prefix=""):
                         inverse_range.append("%s-%s" % (formatter(block[1] + 1), formatter(max_range)))
                     f.write('\n    "%s": "%s-%s",' % (name, formatter(block[0]), formatter(block[1])))
                     f.write('\n    "^%s": "%s",' % (name, ''.join(inverse_range)))
+            # Initialize values found in aliases in case they have no values.
+            if aliases:
+                for v in aliases.get('block', {}).values():
+                    if v not in found:
+                        f.write('\n    "%s": "",' % v)
+                        f.write('\n    "^%s": "%s-%s",' % (v, formatter(0), formatter(max_range)))
             if last < max_range:
                 if (last + 1) <= max_range:
                     no_block.append((last + 1, max_range))
@@ -245,10 +329,15 @@ def gen_blocks(output, ascii_props=False, append=False, prefix=""):
             f.write('\n}\n')
 
 
-def gen_ccc(output, ascii_props=False, append=False, prefix=""):
+def gen_ccc(output, ascii_props=False, append=False, prefix="", aliases=None):
     """Generate `canonical combining class` property."""
 
     obj = {}
+
+    if aliases:
+        for v in aliases.get('canonicalcombiningclass', {}).values():
+            obj[v] = []
+
     with codecs.open(os.path.join(HOME, 'unicodedata', UNIVERSION, 'DerivedCombiningClass.txt'), 'r', 'utf-8') as uf:
         for line in uf:
             if not line.startswith('#'):
@@ -280,7 +369,7 @@ def gen_ccc(output, ascii_props=False, append=False, prefix=""):
 
     with codecs.open(output, 'a' if append else 'w', 'utf-8') as f:
         if not append:
-            f.write(HEADER)
+            f.write(HEADER.format(UNIVERSION))
         # Write out the Unicode properties
         f.write('%s_canonical_combining_class = {\n' % prefix)
         count = len(obj) - 1
@@ -296,35 +385,41 @@ def gen_ccc(output, ascii_props=False, append=False, prefix=""):
 
 def gen_scripts(
     file_name, file_name_ext, obj_name, obj_ext_name, output, output_ext,
-    field=1, notexplicit=None, ascii_props=False, append=False, prefix=""
+    field=1, notexplicit=None, ascii_props=False, append=False, prefix="", aliases=None
 ):
     """Generate `script` property."""
 
     obj = {}
     obj2 = {}
-    if PY3:
-        aliases = {}
-        with codecs.open(os.path.join(HOME, 'unicodedata', UNIVERSION, 'PropertyValueAliases.txt'), 'r', 'utf-8') as uf:
-            for line in uf:
-                if line.startswith('sc ;'):
-                    values = line.split(';')
-                    aliases[format_name(values[1].strip())] = format_name(values[2].strip())
 
-        with codecs.open(os.path.join(HOME, 'unicodedata', UNIVERSION, file_name_ext), 'r', 'utf-8') as uf:
-            for line in uf:
-                if not line.startswith('#'):
-                    data = line.split('#')[0].split(';')
-                    if len(data) < 2:
+    # Initialize values found in aliases in case they have no values.
+    if aliases:
+        for v in aliases.get('script', {}).values():
+            obj[v] = []
+            obj2[v] = []
+
+    alias = {}
+    with codecs.open(os.path.join(HOME, 'unicodedata', UNIVERSION, 'PropertyValueAliases.txt'), 'r', 'utf-8') as uf:
+        for line in uf:
+            if line.startswith('sc ;'):
+                values = line.split(';')
+                alias[format_name(values[1].strip())] = format_name(values[2].strip())
+
+    with codecs.open(os.path.join(HOME, 'unicodedata', UNIVERSION, file_name_ext), 'r', 'utf-8') as uf:
+        for line in uf:
+            if not line.startswith('#'):
+                data = line.split('#')[0].split(';')
+                if len(data) < 2:
+                    continue
+                exts = [alias[format_name(n)] for n in data[1].strip().split(' ')]
+                span = create_span([int(i, 16) for i in data[0].strip().split('..')], is_bytes=ascii_props)
+                for ext in exts:
+                    if ext not in obj2:
+                        obj2[ext] = []
+                    if span is None:
                         continue
-                    exts = [aliases[format_name(n)] for n in data[1].strip().split(' ')]
-                    span = create_span([int(i, 16) for i in data[0].strip().split('..')], is_bytes=ascii_props)
-                    for ext in exts:
-                        if ext not in obj2:
-                            obj2[ext] = []
-                        if span is None:
-                            continue
 
-                        obj2[ext].extend(span)
+                    obj2[ext].extend(span)
 
     with codecs.open(os.path.join(HOME, 'unicodedata', UNIVERSION, file_name), 'r', 'utf-8') as uf:
         for line in uf:
@@ -363,7 +458,7 @@ def gen_scripts(
 
     with codecs.open(output, 'a' if append else 'w', 'utf-8') as f:
         if not append:
-            f.write(HEADER)
+            f.write(HEADER.format(UNIVERSION))
         # Write out the Unicode properties
         f.write('%s_%s = {\n' % (prefix, obj_name))
         count = len(obj) - 1
@@ -376,27 +471,34 @@ def gen_scripts(
                 f.write(',\n')
             i += 1
 
-    if PY3:
-        with codecs.open(output_ext, 'a' if append else 'w', 'utf-8') as f:
-            if not append:
-                f.write(HEADER)
-            # Write out the Unicode properties
-            f.write('%s_%s = {\n' % (prefix, obj_ext_name))
-            count = len(obj2) - 1
-            i = 0
-            for k1, v1 in sorted(obj2.items()):
-                f.write('    "%s": "%s"' % (k1, v1))
-                if i == count:
-                    f.write('\n}\n')
-                else:
-                    f.write(',\n')
-                i += 1
+    with codecs.open(output_ext, 'a' if append else 'w', 'utf-8') as f:
+        if not append:
+            f.write(HEADER.format(UNIVERSION))
+        # Write out the Unicode properties
+        f.write('%s_%s = {\n' % (prefix, obj_ext_name))
+        count = len(obj2) - 1
+        i = 0
+        for k1, v1 in sorted(obj2.items()):
+            f.write('    "%s": "%s"' % (k1, v1))
+            if i == count:
+                f.write('\n}\n')
+            else:
+                f.write(',\n')
+            i += 1
 
 
-def gen_enum(file_name, obj_name, output, field=1, notexplicit=None, ascii_props=False, append=False, prefix=""):
-    """Generate generic enum."""
+def gen_enum(
+    file_name, obj_name, output, field=1, notexplicit=None, ascii_props=False, append=False, prefix="", aliases=None
+):
+    """Generate generic enum properties, or properties very much like enum properties."""
 
     obj = {}
+
+    # Initialize values found in aliases in case they have no values.
+    if aliases:
+        for v in aliases.get(format_name(obj_name), {}).values():
+            obj[v] = []
+
     with codecs.open(os.path.join(HOME, 'unicodedata', UNIVERSION, file_name), 'r', 'utf-8') as uf:
         for line in uf:
             if not line.startswith('#'):
@@ -425,7 +527,7 @@ def gen_enum(file_name, obj_name, output, field=1, notexplicit=None, ascii_props
 
     with codecs.open(output, 'a' if append else 'w', 'utf-8') as f:
         if not append:
-            f.write(HEADER)
+            f.write(HEADER.format(UNIVERSION))
         # Write out the Unicode properties
         f.write('%s_%s = {\n' % (prefix, obj_name))
         count = len(obj) - 1
@@ -439,10 +541,16 @@ def gen_enum(file_name, obj_name, output, field=1, notexplicit=None, ascii_props
             i += 1
 
 
-def gen_age(output, ascii_props=False, append=False, prefix=""):
+def gen_age(output, ascii_props=False, append=False, prefix="", aliases=None):
     """Generate `age` property."""
 
     obj = {}
+
+    # Initialize values found in aliases in case they have no values.
+    if aliases:
+        for v in aliases.get('age', {}).values():
+            obj[v] = []
+
     all_chars = ALL_ASCII if ascii_props else ALL_CHARS
     with codecs.open(os.path.join(HOME, 'unicodedata', UNIVERSION, 'DerivedAge.txt'), 'r', 'utf-8') as uf:
         for line in uf:
@@ -489,10 +597,9 @@ def gen_age(output, ascii_props=False, append=False, prefix=""):
             i += 1
 
 
-def gen_nf_quick_check(output, ascii_props=False, append=False, prefix=""):
+def gen_nf_quick_check(output, ascii_props=False, append=False, prefix="", aliases=None):
     """Generate quick check properties."""
 
-    categories = []
     nf = {}
     all_chars = ALL_ASCII if ascii_props else ALL_CHARS
     file_name = os.path.join(HOME, 'unicodedata', UNIVERSION, 'DerivedNormalizationProps.txt')
@@ -505,16 +612,21 @@ def gen_nf_quick_check(output, ascii_props=False, append=False, prefix=""):
                 if not data[1].strip().lower().endswith('_qc'):
                     continue
                 span = create_span([int(i, 16) for i in data[0].strip().split('..')], is_bytes=ascii_props)
-                if span is None:
-                    continue
                 name = format_name(data[1][:-3] + 'quickcheck')
                 subvalue = format_name(data[2])
 
                 if name not in nf:
                     nf[name] = {}
-                    categories.append(name)
+                    # Initialize values found in aliases in case they have no values.
+                    if aliases:
+                        for v in aliases.get(name, {}).values():
+                            nf[name][v] = []
+
                 if subvalue not in nf[name]:
                     nf[name][subvalue] = []
+                if span is None:
+                    continue
+
                 nf[name][subvalue].extend(span)
 
     for k1, v1 in nf.items():
@@ -533,7 +645,7 @@ def gen_nf_quick_check(output, ascii_props=False, append=False, prefix=""):
 
     with codecs.open(output, 'a' if append else 'w', 'utf-8') as f:
         if not append:
-            f.write(HEADER)
+            f.write(HEADER.format(UNIVERSION))
         for key, value in sorted(nf.items()):
             # Write out the Unicode properties
             f.write('%s_%s = {\n' % (prefix, key.replace('quickcheck', '_quick_check')))
@@ -547,18 +659,19 @@ def gen_nf_quick_check(output, ascii_props=False, append=False, prefix=""):
                     f.write(',\n')
                 i += 1
 
-    return categories
 
-
-def gen_binary(table, output, ascii_props=False, append=False, prefix=""):
+def gen_binary(table, output, ascii_props=False, append=False, prefix="", aliases=None):
     """Generate binary properties."""
 
-    categories = []
-    binary_props = (
+    binary_props = [
         ('DerivedCoreProperties.txt', None),
         ('PropList.txt', None),
         ('DerivedNormalizationProps.txt', ('Changes_When_NFKC_Casefolded', 'Full_Composition_Exclusion'))
-    )
+    ]
+
+    if UNIVERSION_INFO >= (13, 0, 0):
+        binary_props.append(('emoji-data.txt', None))
+
     binary = {}
     for filename, include in binary_props:
         with codecs.open(os.path.join(HOME, 'unicodedata', UNIVERSION, filename), 'r', 'utf-8') as uf:
@@ -574,7 +687,6 @@ def gen_binary(table, output, ascii_props=False, append=False, prefix=""):
 
                     if name not in binary:
                         binary[name] = []
-                        categories.append(name)
                     if span is None:
                         continue
                     binary[name].extend(span)
@@ -583,7 +695,7 @@ def gen_binary(table, output, ascii_props=False, append=False, prefix=""):
         name = 'compositionexclusion'
         for line in uf:
             if not line.startswith('#'):
-                data = [x.strip() for x in line.split('#')[0] if x.strip()]
+                data = [x.strip() for x in line.split('#') if x.strip()]
                 if not data:
                     continue
                 span = create_span([int(data[0], 16)], is_bytes=ascii_props)
@@ -592,9 +704,25 @@ def gen_binary(table, output, ascii_props=False, append=False, prefix=""):
 
                 if name not in binary:
                     binary[name] = []
-                    categories.append(name)
                 binary[name].extend(span)
-                binary['full' + name].extend(span)
+
+    file_name = os.path.join(HOME, 'unicodedata', UNIVERSION, 'DerivedNormalizationProps.txt')
+    with codecs.open(file_name, 'r', 'utf-8') as uf:
+        name = "fullcompositionexclusion"
+        for line in uf:
+            if not line.startswith('#'):
+                data = line.split('#')[0].split(';')
+                if len(data) < 2:
+                    continue
+                if not data[1].strip().lower() == 'Full_Composition_Exclusion':
+                    continue
+                span = create_span([int(i, 16) for i in data[0].strip().split('..')], is_bytes=False)
+                if span is None:
+                    continue
+
+                if name not in binary:
+                    binary[name] = []
+                binary[name].extend(span)
 
     with codecs.open(os.path.join(HOME, 'unicodedata', UNIVERSION, 'UnicodeData.txt'), 'r', 'utf-8') as uf:
         name = 'bidimirrored'
@@ -609,7 +737,6 @@ def gen_binary(table, output, ascii_props=False, append=False, prefix=""):
 
                 if name not in binary:
                     binary[name] = []
-                    categories.append(name)
                 binary[name].extend(span)
 
     for name in list(binary.keys()):
@@ -618,12 +745,17 @@ def gen_binary(table, output, ascii_props=False, append=False, prefix=""):
 
     gen_uposix(table, binary)
 
+    if aliases:
+        for v in aliases.get('binary', {}).values():
+            if v not in binary and '^' + v not in binary:
+                binary[v] = []
+
     # Convert characters values to ranges
     char2range(binary, is_bytes=ascii_props)
 
     with codecs.open(output, 'a' if append else 'w', 'utf-8') as f:
         if not append:
-            f.write(HEADER)
+            f.write(HEADER.format(UNIVERSION))
         # Write out the Unicode properties
         f.write('%s_binary = {\n' % prefix)
         count = len(binary) - 1
@@ -636,13 +768,17 @@ def gen_binary(table, output, ascii_props=False, append=False, prefix=""):
                 f.write(',\n')
             i += 1
 
-    return categories[:]
 
-
-def gen_bidi(output, ascii_props=False, append=False, prefix=""):
+def gen_bidi(output, ascii_props=False, append=False, prefix="", aliases=None):
     """Generate `bidi class` property."""
 
     bidi_class = {}
+
+    # Initialize values found in aliases in case they have no values.
+    if aliases:
+        for v in aliases.get('bidiclasses', {}).values():
+            bidi_class[v] = []
+
     max_range = MAXASCII if ascii_props else MAXUNICODE
     with codecs.open(os.path.join(HOME, 'unicodedata', UNIVERSION, 'UnicodeData.txt'), 'r', 'utf-8') as uf:
         for line in uf:
@@ -670,7 +806,7 @@ def gen_bidi(output, ascii_props=False, append=False, prefix=""):
 
     with codecs.open(output, 'a' if append else 'w', 'utf-8') as f:
         if not append:
-            f.write(HEADER)
+            f.write(HEADER.format(UNIVERSION))
         f.write('%s_bidi_classes = {\n' % prefix)
         count = len(bidi_class) - 1
         i = 0
@@ -684,7 +820,7 @@ def gen_bidi(output, ascii_props=False, append=False, prefix=""):
 
 
 def gen_posix(output, is_bytes=False, append=False, prefix=""):
-    """Generate the bytes posix table and write out to file."""
+    """Generate the bytes POSIX table and write out to file."""
 
     posix_table = {}
 
@@ -753,7 +889,7 @@ def gen_posix(output, is_bytes=False, append=False, prefix=""):
 
     with codecs.open(output, 'a' if append else 'w', 'utf-8') as f:
         if not append:
-            f.write(HEADER)
+            f.write(HEADER.format(UNIVERSION))
         # Write out the Unicode properties
         f.write('%s_posix_properties = {\n' % prefix)
         count = len(posix_table) - 1
@@ -768,7 +904,7 @@ def gen_posix(output, is_bytes=False, append=False, prefix=""):
 
 
 def gen_uposix(table, posix_table):
-    """Generate the posix table and write out to file."""
+    """Generate the POSIX table and write out to file."""
 
     # `Alnum: [\p{L&}\p{Nd}]`
     s = set(table['l']['c'] + table['n']['d'])
@@ -842,12 +978,13 @@ def gen_uposix(table, posix_table):
     posix_table["posixxdigit"] = list(s)
 
 
-def gen_alias(enum, binary, output, ascii_props=False, append=False, prefix=""):
+def gen_alias(nonbinary, binary, output):
     """Generate alias."""
 
+    prefix = "unicode"
     alias_re = re.compile(r'^#\s+(\w+)\s+\((\w+)\)\s*$')
 
-    categories = enum + binary
+    categories = nonbinary + binary
     alias = {}
     gather = False
     current_category = None
@@ -908,7 +1045,7 @@ def gen_alias(enum, binary, output, ascii_props=False, append=False, prefix=""):
                 line_re = re.compile(r'%s\s*;' % m.group(2), re.I)
             if gather and line_re.match(line):
                 data = [format_name(x) for x in line.split('#')[0].split(';')]
-                if current_category in ('sc', 'blk', 'dt', 'jg', 'sb', 'wb', 'lb', 'gcb', 'nt', 'inpc', 'inmc', 'insc'):
+                if current_category in ('sc', 'blk', 'dt', 'sb', 'wb', 'gcb', 'nt', 'inpc', 'inmc', 'insc'):
                     data[1], data[2] = data[2], data[1]
                 elif current_category == 'age' and UNIVERSION_INFO < (6, 1, 0):
                     if data[2] == 'unassigned':
@@ -927,16 +1064,15 @@ def gen_alias(enum, binary, output, ascii_props=False, append=False, prefix=""):
                     if a not in alias[data[0]] and a != data[1]:
                         alias[data[0]][a] = data[1]
 
-    for x in enum:
+    for x in nonbinary:
         if x not in alias:
             alias[x] = {}
 
     for prop in posix_props:
         alias['binary'][prop] = 'posix' + prop
 
-    with codecs.open(output, 'a' if append else 'w', 'utf-8') as f:
-        if not append:
-            f.write(HEADER)
+    with codecs.open(output, 'w', 'utf-8') as f:
+        f.write(HEADER.format(UNIVERSION))
         f.write('%s_alias = {\n' % prefix)
         count = len(alias) - 1
         i = 0
@@ -959,85 +1095,14 @@ def gen_alias(enum, binary, output, ascii_props=False, append=False, prefix=""):
                 f.write(',\n')
             i += 1
 
-        cat = set(enum)
-        for k in alias['_'].keys():
-            cat.add(k)
-
-        f.write('enum_names = {\n')
-        count = len(cat) - 1
-        i = 0
-        for name in sorted(cat):
-            f.write('    "%s"' % name)
-            if i == count:
-                f.write('\n}\n')
-            else:
-                f.write(',\n')
-            i += 1
+    return alias
 
 
-def gen_properties(output, ascii_props=False, append=False):
+def gen_properties(output, files, aliases, ascii_props=False, append=False):
     """Generate the property table and dump it to the provided file."""
-
-    files = {
-        'gc': os.path.join(output, 'generalcategory.py'),
-        'blk': os.path.join(output, 'block.py'),
-        'sc': os.path.join(output, 'script.py'),
-        'bc': os.path.join(output, 'bidiclass.py'),
-        'binary': os.path.join(output, 'binary.py'),
-        'posix': os.path.join(output, 'posix.py'),
-        'age': os.path.join(output, 'age.py'),
-        'ea': os.path.join(output, 'eastasianwidth.py'),
-        'gcb': os.path.join(output, 'graphemeclusterbreak.py'),
-        'lb': os.path.join(output, 'linebreak.py'),
-        'sb': os.path.join(output, 'sentencebreak.py'),
-        'wb': os.path.join(output, 'wordbreak.py'),
-        'hst': os.path.join(output, 'hangulsyllabletype.py'),
-        'dt': os.path.join(output, 'decompositiontype.py'),
-        'jt': os.path.join(output, 'joiningtype.py'),
-        'jg': os.path.join(output, 'joininggroup.py'),
-        'nt': os.path.join(output, 'numerictype.py'),
-        'nv': os.path.join(output, 'numericvalue.py'),
-        'ccc': os.path.join(output, 'canonicalcombiningclass.py'),
-        'qc': os.path.join(output, 'quickcheck.py'),
-        'alias': os.path.join(output, 'alias.py')
-    }
-
-    if PY3:
-        files['scx'] = os.path.join(output, 'scriptextensions.py')
-        files['insc'] = os.path.join(output, 'indicsyllabiccategory.py')
-        if PY34:
-            files['bpt'] = os.path.join(output, 'bidipairedbrackettype.py')
-        if PY35:
-            files['inpc'] = os.path.join(output, 'indicpositionalcategory.py')
-        else:
-            files['inmc'] = os.path.join(output, 'indicmatracategory.py')
-        if PY37:
-            files['vo'] = os.path.join(output, 'verticalorientation.py')
 
     prefix = "ascii" if ascii_props else 'unicode'
 
-    # `L&` or `Lc` won't be found in the table,
-    # so initialize 'c' at the start. `&` will have to be converted to 'c'
-    # before sending it through.
-    categories = [
-        'generalcategory', 'script', 'block',
-        'bidiclass', 'eastasianwidth', 'linebreak',
-        'hangulsyllabletype', 'wordbreak', 'sentencebreak',
-        'graphemeclusterbreak', 'decompositiontype', 'joiningtype',
-        'joininggroup', 'numerictype', 'numericvalue',
-        'canonicalcombiningclass', 'age'
-    ]
-    if PY3:
-        categories.append('scriptextensions')
-        categories.append('indicsyllabiccategory')
-        if PY34:
-            categories.append('bidipairedbrackettype')
-        if PY35:
-            categories.append('indicpositionalcategory')
-        else:
-            categories.append('indicmatracategory')
-        if PY37:
-            categories.append('verticalorientation')
     if ascii_props:
         print('=========Ascii Tables=========')
     else:
@@ -1045,6 +1110,10 @@ def gen_properties(output, ascii_props=False, append=False):
     print('Building: General Category')
     max_range = ASCII_RANGE if ascii_props else UNICODE_RANGE
     all_chars = ALL_ASCII if ascii_props else ALL_CHARS
+
+    # `L&` or `Lc` won't be found in the table,
+    # so initialize 'c' at the start. `&` will have to be converted to 'c'
+    # before sending it through.
     table = {'l': {'c': []}}
     itable = {'l': {}}
     with codecs.open(os.path.join(HOME, 'unicodedata', UNIVERSION, 'UnicodeData.txt'), 'r', 'utf-8') as uf:
@@ -1052,18 +1121,24 @@ def gen_properties(output, ascii_props=False, append=False):
             data = line.strip().split(';')
             if data:
                 i = int(data[0], 16)
-                if i > max_range[1]:
-                    continue
                 p = data[2].lower()
                 if p[0] not in table:
                     table[p[0]] = {}
                     itable[p[0]] = {}
                 if p[1] not in table[p[0]]:
                     table[p[0]][p[1]] = []
+                if i > max_range[1]:
+                    continue
                 table[p[0]][p[1]].append(i)
                 # Add LC which is a combo of Ll, Lu, and Lt
                 if p[0] == 'l' and p[1] in ('l', 'u', 't'):
                     table['l']['c'].append(i)
+
+    s = set()
+    for k, v in table.items():
+        for k2, v2 in v.items():
+            s.update(v2)
+    table['c']['n'] = list(all_chars - s)
 
     # Create inverse of each category
     for k1, v1 in table.items():
@@ -1075,144 +1150,134 @@ def gen_properties(output, ascii_props=False, append=False):
 
     # Generate Unicode blocks
     print('Building: Blocks')
-    gen_blocks(files['blk'], ascii_props, append, prefix)
+    gen_blocks(files['blk'], ascii_props, append, prefix, aliases=aliases)
 
     # Generate Unicode scripts
     print('Building: Scripts & Script Extensions')
-    if PY3:
-        gen_scripts(
-            'Scripts.txt', 'ScriptExtensions.txt', 'scripts', 'script_extensions', files['sc'], files['scx'],
-            notexplicit='zzzz', ascii_props=ascii_props, append=append, prefix=prefix
-        )
-    else:
-        gen_scripts(
-            'Scripts.txt', None, 'scripts', None, files['sc'], None,
-            notexplicit='zzzz', ascii_props=ascii_props, append=append, prefix=prefix
-        )
-
-    # Generate Unicode bidi classes
-    print('Building: Bidi Classes')
-    gen_bidi(files['bc'], ascii_props, append, prefix)
-
-    if PY34:
-        print('Building: Bidi Paired Bracket Type')
-        gen_enum(
-            'BidiBrackets.txt', 'bidi_paired_bracket_type', files['bpt'], notexplicit='n',
-            field=2, ascii_props=ascii_props, append=append, prefix=prefix
-        )
+    gen_scripts(
+        'Scripts.txt', 'ScriptExtensions.txt', 'scripts', 'script_extensions', files['sc'], files['scx'],
+        notexplicit='unknown', ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
+    )
 
     # Generate Unicode binary
     print('Building: Binary')
-    binary = gen_binary(table, files['binary'], ascii_props, append, prefix)
+    gen_binary(table, files['binary'], ascii_props, append, prefix, aliases=aliases)
 
-    # Generate posix table and write out to file.
+    # Generate POSIX table and write out to file.
     print('Building: Posix')
     gen_posix(files['posix'], is_bytes=ascii_props, append=append, prefix=prefix)
 
     print('Building: Age')
-    gen_age(files['age'], ascii_props, append, prefix)
+    gen_age(files['age'], ascii_props, append, prefix, aliases)
 
     print('Building: East Asian Width')
     gen_enum(
         'EastAsianWidth.txt', 'east_asian_width', files['ea'],
-        notexplicit='n', ascii_props=ascii_props, append=append, prefix=prefix
+        notexplicit='n', ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
     )
 
     print('Building: Grapheme Cluster Break')
     gen_enum(
         'GraphemeBreakProperty.txt', 'grapheme_cluster_break', files['gcb'], notexplicit='other',
-        ascii_props=ascii_props, append=append, prefix=prefix
+        ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
     )
 
     print('Building: Line Break')
     gen_enum(
-        'LineBreak.txt', 'line_break', files['lb'], notexplicit='unknown',
-        ascii_props=ascii_props, append=append, prefix=prefix
+        'LineBreak.txt', 'line_break', files['lb'], notexplicit='xx',
+        ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
     )
 
     print('Building: Sentence Break')
     gen_enum(
         'SentenceBreakProperty.txt', 'sentence_break', files['sb'], notexplicit='other',
-        ascii_props=ascii_props, append=append, prefix=prefix
+        ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
     )
 
     print('Building: Word Break')
     gen_enum(
         'WordBreakProperty.txt', 'word_break', files['wb'], notexplicit='other',
-        ascii_props=ascii_props, append=append, prefix=prefix
+        ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
     )
 
-    if PY3:
-        if PY35:
-            print('Building: Indic Positional Category')
-            gen_enum(
-                'IndicPositionalCategory.txt', 'indic_positional_category', files['inpc'], notexplicit='na',
-                ascii_props=ascii_props, append=append, prefix=prefix
-            )
-        else:
-            print('Building: Indic Matra Category')
-            gen_enum(
-                'IndicMatraCategory.txt', 'indic_matra_category', files['inmc'], notexplicit='na',
-                ascii_props=ascii_props, append=append, prefix=prefix
-            )
-        print('Building: Indic Syllabic Category')
+    if UNIVERSION_INFO >= (8, 0, 0):
+        print('Building: Indic Positional Category')
         gen_enum(
-            'IndicSyllabicCategory.txt', 'indic_syllabic_category', files['insc'], notexplicit='other',
-            ascii_props=ascii_props, append=append, prefix=prefix
+            'IndicPositionalCategory.txt', 'indic_positional_category', files['inpc'], notexplicit='na',
+            ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
         )
+    else:
+        print('Building: Indic Matra Category')
+        gen_enum(
+            'IndicMatraCategory.txt', 'indic_matra_category', files['inmc'], notexplicit='na',
+            ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
+        )
+    print('Building: Indic Syllabic Category')
+    gen_enum(
+        'IndicSyllabicCategory.txt', 'indic_syllabic_category', files['insc'], notexplicit='other',
+        ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
+    )
 
     print('Building: Hangul Syllable Type')
     gen_enum(
         'HangulSyllableType.txt', 'hangul_syllable_type', files['hst'], notexplicit='na',
-        ascii_props=ascii_props, append=append, prefix=prefix
+        ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
     )
 
     print('Building: Decomposition Type')
     gen_enum(
         'DerivedDecompositionType.txt', 'decomposition_type', files['dt'], notexplicit='none',
-        ascii_props=ascii_props, append=append, prefix=prefix
+        ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
     )
 
     print('Building: Joining Type')
     gen_enum(
         'DerivedJoiningType.txt', 'joining_type', files['jt'], notexplicit='u',
-        ascii_props=ascii_props, append=append, prefix=prefix
+        ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
     )
 
     print('Building: Joining Group')
     gen_enum(
         'DerivedJoiningGroup.txt', 'joining_group', files['jg'], notexplicit='nonjoining',
-        ascii_props=ascii_props, append=append, prefix=prefix
+        ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
     )
 
     print('Building: Numeric Type')
     gen_enum(
         'DerivedNumericType.txt', 'numeric_type', files['nt'], notexplicit='none',
-        ascii_props=ascii_props, append=append, prefix=prefix
+        ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
     )
 
     print('Building: Numeric Value')
     gen_enum(
         'DerivedNumericValues.txt', 'numeric_values', files['nv'], field=3, notexplicit='nan',
-        ascii_props=ascii_props, append=append, prefix=prefix
+        ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
     )
 
     print('Building: Canonical Combining Class')
-    gen_ccc(files['ccc'], ascii_props, append, prefix)
+    gen_ccc(files['ccc'], ascii_props, append, prefix, aliases=aliases)
 
+    # Generate Quick Check categories
     print('Building: NF* Quick Check')
-    categories.extend(gen_nf_quick_check(files['qc'], ascii_props, append, prefix))
+    gen_nf_quick_check(files['qc'], ascii_props, append, prefix, aliases=aliases)
 
-    if PY37:
-        print('Building: Vertical Orientation')
+    # Generate Unicode bidi classes
+    print('Building: Bidi Classes')
+    gen_bidi(files['bc'], ascii_props, append, prefix)
+
+    if UNIVERSION_INFO >= (6, 3, 0):
+        print('Building: Bidi Paired Bracket Type')
         gen_enum(
-            'VerticalOrientation.txt', 'vertical_orientation', files['vo'], notexplicit='R',
-            ascii_props=ascii_props, append=append, prefix=prefix
+            'BidiBrackets.txt', 'bidi_paired_bracket_type', files['bpt'], notexplicit='n',
+            field=2, ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
         )
 
-    if not ascii_props:
-        print('Building: Aliases')
-        gen_alias(categories, binary, files['alias'], ascii_props, append, prefix)
+    if UNIVERSION_INFO >= (11, 0, 0):
+        print('Building: Vertical Orientation')
+        gen_enum(
+            'VerticalOrientation.txt', 'vertical_orientation', files['vo'], notexplicit='r',
+            ascii_props=ascii_props, append=append, prefix=prefix, aliases=aliases
+        )
 
     # Convert char values to string ranges.
     char2range(table, is_bytes=ascii_props)
@@ -1222,7 +1287,7 @@ def gen_properties(output, ascii_props=False, append=False):
 
     with codecs.open(files['gc'], 'a' if append else 'w', 'utf-8') as f:
         if not append:
-            f.write(HEADER)
+            f.write(HEADER.format(UNIVERSION))
         # Write out the Unicode properties
         f.write('%s_properties = {\n' % prefix)
         count = len(table) - 1
@@ -1246,33 +1311,39 @@ def gen_properties(output, ascii_props=False, append=False):
 
     if not append:
         with codecs.open(os.path.join(output, '__init__.py'), 'w') as f:
-            f.write(HEADER)
+            f.write(HEADER.format(UNIVERSION))
             for x in sorted(files):
                 f.write('from .%s import *  # noqa\n' % os.path.basename(files[x])[:-3])
 
 
-def build_unicode_property_table(output):
+def build_unicode_property_table(output, files, aliases):
     """Build and write out Unicode property table."""
 
-    if not os.path.exists(output):
-        os.mkdir(output)
-    gen_properties(output)
+    gen_properties(output, files, aliases)
 
 
-def build_ascii_property_table(output):
+def build_ascii_property_table(output, files, aliases):
     """Build and write out Unicode property table."""
 
-    if not os.path.exists(output):
-        os.mkdir(output)
-    gen_properties(output, ascii_props=True, append=True)
+    gen_properties(output, files, aliases, ascii_props=True, append=True)
 
 
 def build_tables(output, version=None):
     """Build output tables."""
 
     set_version(version)
-    build_unicode_property_table(output)
-    build_ascii_property_table(output)
+
+    files = get_files(output)
+    nonbinary, binary = discover_categories()
+
+    if not os.path.exists(output):
+        os.mkdir(output)
+
+    print('Building: Aliases')
+    aliases = gen_alias(nonbinary, binary, files['alias'])
+
+    build_unicode_property_table(output, files, aliases)
+    build_ascii_property_table(output, files, aliases)
 
 
 def set_version(version):
