@@ -20,14 +20,15 @@ Add the ability to use the following backrefs with re:
  - `\m`                                                          - Starting word boundary (search)
  - `\M`                                                          - Ending word boundary (search)
  - `\R`                                                          - Generic line breaks (search)
+ - `\h`                                                          - Horizontal whitespace (search)
  - `\X`                                                          - Simplified grapheme clusters (search)
 
 Licensed under MIT
-Copyright (c) 2011 - 2019 Isaac Muse <isaacmuse@gmail.com>
+Copyright (c) 2011 - 2020 Isaac Muse <isaacmuse@gmail.com>
 """
-from __future__ import unicode_literals
-import sys as _sys
 import re as _re
+import copyreg as _copyreg
+from functools import lru_cache as _lru_cache
 from . import util as _util
 from . import _bre_parse
 from ._bre_parse import ReplaceTemplate
@@ -36,8 +37,8 @@ __all__ = (
     "expand", "expandf", "search", "match", "fullmatch", "split", "findall", "finditer", "sub", "subf",
     "subn", "subfn", "purge", "escape", "DEBUG", "I", "IGNORECASE", "L", "LOCALE", "M", "MULTILINE",
     "S", "DOTALL", "U", "UNICODE", "X", "VERBOSE", "compile", "compile_search", "compile_replace", "Bregex",
-    "ReplaceTemplate"
-) + (("A", "ASCII") if _util.PY3 else tuple()) + (("fullmatch",) if _util.PY34 else tuple())
+    "ReplaceTemplate", "A", "ASCII"
+) + (("fullmatch",) if _util.PY34 else tuple())
 
 # Expose some common re flags and methods to
 # save having to import re and backrefs libraries
@@ -54,9 +55,8 @@ U = _re.U
 UNICODE = _re.UNICODE
 X = _re.X
 VERBOSE = _re.VERBOSE
-if _util.PY3:
-    A = _re.A
-    ASCII = _re.ASCII
+A = _re.A
+ASCII = _re.ASCII
 escape = _re.escape
 
 # Replace flags
@@ -68,14 +68,14 @@ _MAXCACHE = 500
 _RE_TYPE = type(_re.compile('', 0))
 
 
-@_util.lru_cache(maxsize=_MAXCACHE)
-def _cached_search_compile(pattern, re_verbose, re_version, pattern_type):
+@_lru_cache(maxsize=_MAXCACHE)
+def _cached_search_compile(pattern, re_verbose, re_unicode, pattern_type):
     """Cached search compile."""
 
-    return _bre_parse._SearchParser(pattern, re_verbose, re_version).parse()
+    return _bre_parse._SearchParser(pattern, re_verbose, re_unicode).parse()
 
 
-@_util.lru_cache(maxsize=_MAXCACHE)
+@_lru_cache(maxsize=_MAXCACHE)
 def _cached_replace_compile(pattern, repl, flags, pattern_type):
     """Cached replace compile."""
 
@@ -113,17 +113,17 @@ def _apply_replace_backrefs(m, repl=None, flags=0):
     else:
         if isinstance(repl, ReplaceTemplate):
             return repl.expand(m)
-        elif isinstance(repl, (_util.string_type, _util.binary_type)):
+        elif isinstance(repl, (str, bytes)):
             return _bre_parse._ReplaceParser().parse(m.re, repl, bool(flags & FORMAT)).expand(m)
 
 
 def _apply_search_backrefs(pattern, flags=0):
     """Apply the search backrefs to the search pattern."""
 
-    if isinstance(pattern, (_util.string_type, _util.binary_type)):
+    if isinstance(pattern, (str, bytes)):
         re_verbose = bool(VERBOSE & flags)
         re_unicode = None
-        if _util.PY3 and bool((ASCII | LOCALE) & flags):
+        if bool((ASCII | LOCALE) & flags):
             re_unicode = False
         elif bool(UNICODE & flags):
             re_unicode = True
@@ -152,7 +152,7 @@ def _assert_expandable(repl, use_format=False):
                 raise ValueError("Replace not compiled as a format replace")
             else:
                 raise ValueError("Replace should not be compiled as a format replace!")
-    elif not isinstance(repl, (_util.string_type, _util.binary_type)):
+    elif not isinstance(repl, (str, bytes)):
         raise TypeError("Expected string, buffer, or compiled replace!")
 
 
@@ -237,7 +237,7 @@ class Bre(_util.Immutable):
         """Compile replacements."""
 
         is_replace = _is_replace(template)
-        is_string = isinstance(template, (_util.string_type, _util.binary_type))
+        is_string = isinstance(template, (str, bytes))
         if is_replace and use_format != template.use_format:
             raise ValueError("Compiled replace cannot be a format object!")
         if is_replace or (is_string and self.auto_compile):
@@ -334,7 +334,7 @@ def compile_replace(pattern, repl, flags=0):
 
     call = None
     if pattern is not None and isinstance(pattern, _RE_TYPE):
-        if isinstance(repl, (_util.string_type, _util.binary_type)):
+        if isinstance(repl, (str, bytes)):
             if not (pattern.flags & DEBUG):
                 call = _cached_replace_compile(pattern, repl, flags, type(repl))
             else:  # pragma: no cover
@@ -421,7 +421,7 @@ def sub(pattern, repl, string, *args, **kwargs):
 
     flags = args[4] if len(args) > 4 else kwargs.get('flags', 0)
     is_replace = _is_replace(repl)
-    is_string = isinstance(repl, (_util.string_type, _util.binary_type))
+    is_string = isinstance(repl, (str, bytes))
     if is_replace and repl.use_format:
         raise ValueError("Compiled replace cannot be a format object!")
 
@@ -436,7 +436,7 @@ def subf(pattern, format, string, *args, **kwargs):  # noqa A002
 
     flags = args[4] if len(args) > 4 else kwargs.get('flags', 0)
     is_replace = _is_replace(format)
-    is_string = isinstance(format, (_util.string_type, _util.binary_type))
+    is_string = isinstance(format, (str, bytes))
     if is_replace and not format.use_format:
         raise ValueError("Compiled replace is not a format object!")
 
@@ -453,7 +453,7 @@ def subn(pattern, repl, string, *args, **kwargs):
 
     flags = args[4] if len(args) > 4 else kwargs.get('flags', 0)
     is_replace = _is_replace(repl)
-    is_string = isinstance(repl, (_util.string_type, _util.binary_type))
+    is_string = isinstance(repl, (str, bytes))
     if is_replace and repl.use_format:
         raise ValueError("Compiled replace cannot be a format object!")
 
@@ -468,7 +468,7 @@ def subfn(pattern, format, string, *args, **kwargs):  # noqa A002
 
     flags = args[4] if len(args) > 4 else kwargs.get('flags', 0)
     is_replace = _is_replace(format)
-    is_string = isinstance(format, (_util.string_type, _util.binary_type))
+    is_string = isinstance(format, (str, bytes))
     if is_replace and not format.use_format:
         raise ValueError("Compiled replace is not a format object!")
 
@@ -484,4 +484,4 @@ def _pickle(p):
     return Bre, (p._pattern, p.auto_compile)
 
 
-_util.copyreg.pickle(Bre, _pickle)
+_copyreg.pickle(Bre, _pickle)

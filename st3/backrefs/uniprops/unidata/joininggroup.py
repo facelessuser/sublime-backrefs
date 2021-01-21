@@ -1,5 +1,4 @@
 """Unicode Properties from Unicode version 6.1.0 (autogen)."""
-from __future__ import unicode_literals
 
 unicode_joining_group = {
     "^ain": "\x00-\u0638\u063b-\u069f\u06a1-\u06fb\u06fd-\u075c\u0760-\U0010ffff",

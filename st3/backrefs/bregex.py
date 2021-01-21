@@ -12,10 +12,11 @@ Add the ability to use the following backrefs with re:
  - `\e`                                                         - Escape character (search)
 
 Licensed under MIT
-Copyright (c) 2015 - 2019 Isaac Muse <isaacmuse@gmail.com>
+Copyright (c) 2015 - 2020 Isaac Muse <isaacmuse@gmail.com>
 """
-from __future__ import unicode_literals
 import regex as _regex
+import copyreg as _copyreg
+from functools import lru_cache as _lru_cache
 from . import util as _util
 from . import _bregex_parse
 from ._bregex_parse import ReplaceTemplate
@@ -79,14 +80,14 @@ _MAXCACHE = 500
 _REGEX_TYPE = type(_regex.compile('', 0))
 
 
-@_util.lru_cache(maxsize=_MAXCACHE)
+@_lru_cache(maxsize=_MAXCACHE)
 def _cached_search_compile(pattern, re_verbose, re_version, pattern_type):
     """Cached search compile."""
 
     return _bregex_parse._SearchParser(pattern, re_verbose, re_version).parse()
 
 
-@_util.lru_cache(maxsize=_MAXCACHE)
+@_lru_cache(maxsize=_MAXCACHE)
 def _cached_replace_compile(pattern, repl, flags, pattern_type):
     """Cached replace compile."""
 
@@ -124,14 +125,14 @@ def _apply_replace_backrefs(m, repl=None, flags=0):
     else:
         if isinstance(repl, ReplaceTemplate):
             return repl.expand(m)
-        elif isinstance(repl, (_util.string_type, _util.binary_type)):
+        elif isinstance(repl, (str, bytes)):
             return _bregex_parse._ReplaceParser().parse(m.re, repl, bool(flags & FORMAT)).expand(m)
 
 
 def _apply_search_backrefs(pattern, flags=0):
     """Apply the search backrefs to the search pattern."""
 
-    if isinstance(pattern, (_util.string_type, _util.binary_type)):
+    if isinstance(pattern, (str, bytes)):
         re_verbose = VERBOSE & flags
         if flags & V0:
             re_version = V0
@@ -164,7 +165,7 @@ def _assert_expandable(repl, use_format=False):
                 raise ValueError("Replace not compiled as a format replace")
             else:
                 raise ValueError("Replace should not be compiled as a format replace!")
-    elif not isinstance(repl, (_util.string_type, _util.binary_type)):
+    elif not isinstance(repl, (str, bytes)):
         raise TypeError("Expected string, buffer, or compiled replace!")
 
 
@@ -195,7 +196,7 @@ def compile_replace(pattern, repl, flags=0):
 
     call = None
     if pattern is not None and isinstance(pattern, _REGEX_TYPE):
-        if isinstance(repl, (_util.string_type, _util.binary_type)):
+        if isinstance(repl, (str, bytes)):
             if not (pattern.flags & DEBUG):
                 call = _cached_replace_compile(pattern, repl, flags, type(repl))
             else:  # pragma: no cover
@@ -294,7 +295,7 @@ class Bregex(_util.Immutable):
         """Compile replacements."""
 
         is_replace = _is_replace(template)
-        is_string = isinstance(template, (_util.string_type, _util.binary_type))
+        is_string = isinstance(template, (str, bytes))
         if is_replace and use_format != template.use_format:
             raise ValueError("Compiled replace cannot be a format object!")
         if is_replace or (is_string and self.auto_compile):
@@ -307,7 +308,7 @@ class Bregex(_util.Immutable):
         else:
             return template
 
-    def compile(self, repl, flags=0):
+    def compile(self, repl, flags=0):  # noqa A001
         """Compile replace."""
 
         return compile_replace(self._pattern, repl, flags)
@@ -415,7 +416,7 @@ def sub(pattern, repl, string, *args, **kwargs):
 
     flags = args[4] if len(args) > 4 else kwargs.get('flags', 0)
     is_replace = _is_replace(repl)
-    is_string = isinstance(repl, (_util.string_type, _util.binary_type))
+    is_string = isinstance(repl, (str, bytes))
     if is_replace and repl.use_format:
         raise ValueError("Compiled replace cannot be a format object!")
 
@@ -431,7 +432,7 @@ def subf(pattern, format, string, *args, **kwargs):  # noqa A002
 
     flags = args[4] if len(args) > 4 else kwargs.get('flags', 0)
     is_replace = _is_replace(format)
-    is_string = isinstance(format, (_util.string_type, _util.binary_type))
+    is_string = isinstance(format, (str, bytes))
     if is_replace and not format.use_format:
         raise ValueError("Compiled replace is not a format object!")
 
@@ -448,7 +449,7 @@ def subn(pattern, repl, string, *args, **kwargs):
 
     flags = args[4] if len(args) > 4 else kwargs.get('flags', 0)
     is_replace = _is_replace(repl)
-    is_string = isinstance(repl, (_util.string_type, _util.binary_type))
+    is_string = isinstance(repl, (str, bytes))
     if is_replace and repl.use_format:
         raise ValueError("Compiled replace cannot be a format object!")
 
@@ -464,7 +465,7 @@ def subfn(pattern, format, string, *args, **kwargs):  # noqa A002
 
     flags = args[4] if len(args) > 4 else kwargs.get('flags', 0)
     is_replace = _is_replace(format)
-    is_string = isinstance(format, (_util.string_type, _util.binary_type))
+    is_string = isinstance(format, (str, bytes))
     if is_replace and not format.use_format:
         raise ValueError("Compiled replace is not a format object!")
 
@@ -508,4 +509,4 @@ def _pickle(p):
     return Bregex, (p._pattern, p.auto_compile)
 
 
-_util.copyreg.pickle(Bregex, _pickle)
+_copyreg.pickle(Bregex, _pickle)

@@ -1,5 +1,4 @@
 """Unicode Properties from Unicode version 6.1.0 (autogen)."""
-from __future__ import unicode_literals
 
 unicode_hangul_syllable_type = {
     "^l": "\x00-\u10ff\u1160-\ua95f\ua97d-\U0010ffff",

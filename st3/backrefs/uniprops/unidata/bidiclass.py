@@ -1,5 +1,4 @@
 """Unicode Properties from Unicode version 6.1.0 (autogen)."""
-from __future__ import unicode_literals
 
 unicode_bidi_classes = {
     "^al": "\x00-\u0607\u0609-\u060a\u060c\u060e-\u061a\u061c-\u061d\u064b-\u066c\u0670\u06d6-\u06e4\u06e7-\u06ed\u06f0-\u06f9\u070e\u0711\u0730-\u074c\u07a6-\u07b0\u07b2-\u089f\u08a1\u08ad-\ufb4f\ufbc2-\ufbd2\ufd3e-\ufd4f\ufd90-\ufd91\ufdc8-\ufdef\ufdfd-\ufe6f\ufe75\ufefd-\U0001edff\U0001ee04\U0001ee20\U0001ee23\U0001ee25-\U0001ee26\U0001ee28\U0001ee33\U0001ee38\U0001ee3a\U0001ee3c-\U0001ee41\U0001ee43-\U0001ee46\U0001ee48\U0001ee4a\U0001ee4c\U0001ee50\U0001ee53\U0001ee55-\U0001ee56\U0001ee58\U0001ee5a\U0001ee5c\U0001ee5e\U0001ee60\U0001ee63\U0001ee65-\U0001ee66\U0001ee6b\U0001ee73\U0001ee78\U0001ee7d\U0001ee7f\U0001ee8a\U0001ee9c-\U0001eea0\U0001eea4\U0001eeaa\U0001eebc-\U0010ffff",

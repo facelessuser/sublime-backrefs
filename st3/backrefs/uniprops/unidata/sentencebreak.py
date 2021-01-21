@@ -1,5 +1,4 @@
 """Unicode Properties from Unicode version 6.1.0 (autogen)."""
-from __future__ import unicode_literals
 
 unicode_sentence_break = {
     "^aterm": "\x00-\x5c\x2d\x2f-\u2023\u2025-\ufe51\ufe53-\uff0d\uff0f-\U0010ffff",

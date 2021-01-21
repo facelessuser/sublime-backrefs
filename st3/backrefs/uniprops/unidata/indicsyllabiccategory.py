@@ -1,5 +1,4 @@
 """Unicode Properties from Unicode version 6.1.0 (autogen)."""
-from __future__ import unicode_literals
 
 unicode_indic_syllabic_category = {
     "^avagraha": "\x00-\u093c\u093e-\u09bc\u09be-\u0abc\u0abe-\u0b3c\u0b3e-\u0c3c\u0c3e-\u0cbc\u0cbe-\u0d3c\u0d3e-\u0f84\u0f86-\u17db\u17dd-\u1bb9\u1bbb-\U000111c0\U000111c2-\U0010ffff",
