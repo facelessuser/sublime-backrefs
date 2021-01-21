@@ -21,9 +21,7 @@ def get_posix_property(value, mode=POSIX):
         if mode == POSIX_ASCII:
             return unidata.ascii_posix_properties[value]
         elif mode == POSIX_UNICODE:
-            return unidata.unicode_binary[
-                ('^posix' + value[1:]) if value.startswith('^') else ('posix' + value)
-            ]
+            return get_unicode_property('^posix' + value[1:] if value.startswith('^') else 'posix' + value)
         else:
             return unidata.unicode_posix_properties[value]
     except Exception:

@@ -66,7 +66,6 @@ unicode_alias = {
     },
     "binary": {
         "ahex": "asciihexdigit",
-        "alnum": "posixalnum",
         "alpha": "alphabetic",
         "bidic": "bidicontrol",
         "bidim": "bidimirrored",
@@ -112,6 +111,10 @@ unicode_alias = {
         "oupper": "otheruppercase",
         "patsyn": "patternsyntax",
         "patws": "patternwhitespace",
+        "posixalpha": "alphabetic",
+        "posixlower": "lowercase",
+        "posixspace": "whitespace",
+        "posixupper": "uppercase",
         "print": "posixprint",
         "qmark": "quotationmark",
         "radical": "radical",
@@ -123,7 +126,6 @@ unicode_alias = {
         "upper": "uppercase",
         "vs": "variationselector",
         "wspace": "whitespace",
-        "xdigit": "posixxdigit",
         "xidc": "xidcontinue",
         "xids": "xidstart"
     },
