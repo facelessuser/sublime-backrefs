@@ -29,30 +29,30 @@ unicode_nfkd_quick_check = {
     "y": "\x00-\x9f\xa1-\xa7\xa9\xab-\xae\xb0-\xb1\xb6-\xb7\xbb\xbf\xc6\xd0\xd7-\xd8\xde-\xdf\xe6\xf0\xf7-\xf8\xfe\u0110-\u0111\u0126-\u0127\u0131\u0138\u0141-\u0142\u014a-\u014b\u0152-\u0153\u0166-\u0167\u0180-\u019f\u01a2-\u01ae\u01b1-\u01c3\u01dd\u01e4-\u01e5\u01f6-\u01f7\u021c-\u021d\u0220-\u0225\u0234-\u02af\u02b9-\u02d7\u02de-\u02df\u02e5-\u033f\u0342\u0345-\u0373\u0375-\u0379\u037b-\u037d\u037f-\u0383\u038b\u038d\u0391-\u03a9\u03b1-\u03c9\u03cf\u03d7-\u03ef\u03f3\u03f6-\u03f8\u03fa-\u03ff\u0402\u0404-\u0406\u0408-\u040b\u040f-\u0418\u041a-\u0438\u043a-\u044f\u0452\u0454-\u0456\u0458-\u045b\u045f-\u0475\u0478-\u04c0\u04c3-\u04cf\u04d4-\u04d5\u04d8-\u04d9\u04e0-\u04e1\u04e8-\u04e9\u04f6-\u04f7\u04fa-\u0586\u0588-\u0621\u0627-\u0674\u0679-\u06bf\u06c1\u06c3-\u06d2\u06d4-\u0928\u092a-\u0930\u0932-\u0933\u0935-\u0957\u0960-\u09ca\u09cd-\u09db\u09de\u09e0-\u0a32\u0a34-\u0a35\u0a37-\u0a58\u0a5c-\u0a5d\u0a5f-\u0b47\u0b49-\u0b4a\u0b4d-\u0b5b\u0b5e-\u0b93\u0b95-\u0bc9\u0bcd-\u0c47\u0c49-\u0cbf\u0cc1-\u0cc6\u0cc9\u0ccc-\u0d49\u0d4d-\u0dd9\u0ddb\u0ddf-\u0e32\u0e34-\u0eb2\u0eb4-\u0edb\u0ede-\u0f0b\u0f0d-\u0f42\u0f44-\u0f4c\u0f4e-\u0f51\u0f53-\u0f56\u0f58-\u0f5b\u0f5d-\u0f68\u0f6a-\u0f72\u0f74\u0f7a-\u0f80\u0f82-\u0f92\u0f94-\u0f9c\u0f9e-\u0fa1\u0fa3-\u0fa6\u0fa8-\u0fab\u0fad-\u0fb8\u0fba-\u1025\u1027-\u10fb\u10fd-\u1b05\u1b07\u1b09\u1b0b\u1b0d\u1b0f-\u1b11\u1b13-\u1b3a\u1b3c\u1b3e-\u1b3f\u1b42\u1b44-\u1d2b\u1d2f\u1d3b\u1d4e\u1d6b-\u1d77\u1d79-\u1d9a\u1dc0-\u1dff\u1e9c-\u1e9f\u1efa-\u1eff\u1f16-\u1f17\u1f1e-\u1f1f\u1f46-\u1f47\u1f4e-\u1f4f\u1f58\u1f5a\u1f5c\u1f5e\u1f7e-\u1f7f\u1fb5\u1fc5\u1fd4-\u1fd5\u1fdc\u1ff0-\u1ff1\u1ff5\u1fff\u200b-\u2010\u2012-\u2016\u2018-\u2023\u2027-\u202e\u2030-\u2032\u2035\u2038-\u203b\u203d\u203f-\u2046\u204a-\u2056\u2058-\u205e\u2060-\u206f\u2072-\u2073\u208f\u209d-\u20a7\u20a9-\u20ff\u2104\u2108\u2114\u2117-\u2118\u211e-\u211f\u2123\u2125\u2127\u2129\u212e\u2132\u213a\u2141-\u2144\u214a-\u214f\u2180-\u2188\u218a-\u2199\u219c-\u21ad\u21af-\u21cc\u21d0-\u2203\u2205-\u2208\u220a-\u220b\u220d-\u2223\u2225\u2227-\u222b\u222e\u2231-\u2240\u2242-\u2243\u2245-\u2246\u2248\u224a-\u225f\u2261\u2263-\u226c\u2272-\u2273\u2276-\u2277\u227a-\u227f\u2282-\u2283\u2286-\u2287\u228a-\u22ab\u22b0-\u22df\u22e4-\u22e9\u22ee-\u2328\u232b-\u245f\u24eb-\u2a0b\u2a0d-\u2a73\u2a77-\u2adb\u2add-\u2c7b\u2c7e-\u2d6e\u2d70-\u2e9e\u2ea0-\u2ef2\u2ef4-\u2eff\u2fd6-\u2fff\u3001-\u3035\u3037\u303b-\u304b\u304d\u304f\u3051\u3053\u3055\u3057\u3059\u305b\u305d\u305f\u3061\u3063-\u3064\u3066\u3068\u306a-\u306f\u3072\u3075\u3078\u307b\u307e-\u3093\u3095-\u309a\u309d\u30a0-\u30ab\u30ad\u30af\u30b1\u30b3\u30b5\u30b7\u30b9\u30bb\u30bd\u30bf\u30c1\u30c3-\u30c4\u30c6\u30c8\u30ca-\u30cf\u30d2\u30d5\u30d8\u30db\u30de-\u30f3\u30f5-\u30f6\u30fb-\u30fd\u3100-\u3130\u318f-\u3191\u31a0-\u31ff\u321f\u3248-\u324f\u327f\u32ff\u3400-\ua76f\ua771-\ua7f7\ua7fa-\uabff\ud7a4-\uf8ff\ufa0e-\ufa0f\ufa11\ufa13-\ufa14\ufa1f\ufa21\ufa23-\ufa24\ufa27-\ufa29\ufa6e-\ufa6f\ufada-\ufaff\ufb07-\ufb12\ufb18-\ufb1c\ufb1e\ufb37\ufb3d\ufb3f\ufb42\ufb45\ufbb2-\ufbd2\ufd3e-\ufd4f\ufd90-\ufd91\ufdc8-\ufdef\ufdfd-\ufe0f\ufe1a-\ufe2f\ufe45-\ufe46\ufe53\ufe67\ufe6c-\ufe6f\ufe73\ufe75\ufefd-\uff00\uffbf-\uffc1\uffc8-\uffc9\uffd0-\uffd1\uffd8-\uffd9\uffdd-\uffdf\uffe7\uffef-\U00011099\U0001109b\U0001109d-\U000110aa\U000110ac-\U0001112d\U00011130-\U0001d15d\U0001d165-\U0001d1ba\U0001d1c1-\U0001d3ff\U0001d455\U0001d49d\U0001d4a0-\U0001d4a1\U0001d4a3-\U0001d4a4\U0001d4a7-\U0001d4a8\U0001d4ad\U0001d4ba\U0001d4bc\U0001d4c4\U0001d506\U0001d50b-\U0001d50c\U0001d515\U0001d51d\U0001d53a\U0001d53f\U0001d545\U0001d547-\U0001d549\U0001d551\U0001d6a6-\U0001d6a7\U0001d7cc-\U0001d7cd\U0001d800-\U0001edff\U0001ee04\U0001ee20\U0001ee23\U0001ee25-\U0001ee26\U0001ee28\U0001ee33\U0001ee38\U0001ee3a\U0001ee3c-\U0001ee41\U0001ee43-\U0001ee46\U0001ee48\U0001ee4a\U0001ee4c\U0001ee50\U0001ee53\U0001ee55-\U0001ee56\U0001ee58\U0001ee5a\U0001ee5c\U0001ee5e\U0001ee60\U0001ee63\U0001ee65-\U0001ee66\U0001ee6b\U0001ee73\U0001ee78\U0001ee7d\U0001ee7f\U0001ee8a\U0001ee9c-\U0001eea0\U0001eea4\U0001eeaa\U0001eebc-\U0001f0ff\U0001f10b-\U0001f10f\U0001f12f\U0001f150-\U0001f169\U0001f16c-\U0001f18f\U0001f191-\U0001f1ff\U0001f203-\U0001f20f\U0001f23b-\U0001f23f\U0001f249-\U0001f24f\U0001f252-\U0002f7ff\U0002fa1e-\U0010ffff"
 }
 ascii_nfc_quick_check = {
-    "^m": "\x00-\xff",
-    "^n": "\x00-\xff",
-    "^y": "",
+    "^m": "\x00-\U0010ffff",
+    "^n": "\x00-\U0010ffff",
+    "^y": "\x80-\U0010ffff",
     "m": "",
     "n": "",
-    "y": "\x00-\xff"
+    "y": "\x00-\x7f"
 }
 ascii_nfd_quick_check = {
-    "^n": "\x00-\xbf\xc6\xd0\xd7-\xd8\xde-\xdf\xe6\xf0\xf7-\xf8\xfe",
-    "^y": "\xc0-\xc5\xc7-\xcf\xd1-\xd6\xd9-\xdd\xe0-\xe5\xe7-\xef\xf1-\xf6\xf9-\xfd\xff",
-    "n": "\xc0-\xc5\xc7-\xcf\xd1-\xd6\xd9-\xdd\xe0-\xe5\xe7-\xef\xf1-\xf6\xf9-\xfd\xff",
-    "y": "\x00-\xbf\xc6\xd0\xd7-\xd8\xde-\xdf\xe6\xf0\xf7-\xf8\xfe"
+    "^n": "\x00-\U0010ffff",
+    "^y": "\x80-\U0010ffff",
+    "n": "",
+    "y": "\x00-\x7f"
 }
 ascii_nfkc_quick_check = {
-    "^m": "\x00-\xff",
-    "^n": "\x00-\x9f\xa1-\xa7\xa9\xab-\xae\xb0-\xb1\xb6-\xb7\xbb\xbf-\xff",
-    "^y": "\xa0\xa8\xaa\xaf\xb2-\xb5\xb8-\xba\xbc-\xbe",
+    "^m": "\x00-\U0010ffff",
+    "^n": "\x00-\U0010ffff",
+    "^y": "\x80-\U0010ffff",
     "m": "",
-    "n": "\xa0\xa8\xaa\xaf\xb2-\xb5\xb8-\xba\xbc-\xbe",
-    "y": "\x00-\x9f\xa1-\xa7\xa9\xab-\xae\xb0-\xb1\xb6-\xb7\xbb\xbf-\xff"
+    "n": "",
+    "y": "\x00-\x7f"
 }
 ascii_nfkd_quick_check = {
-    "^n": "\x00-\x9f\xa1-\xa7\xa9\xab-\xae\xb0-\xb1\xb6-\xb7\xbb\xbf\xc6\xd0\xd7-\xd8\xde-\xdf\xe6\xf0\xf7-\xf8\xfe",
-    "^y": "\xa0\xa8\xaa\xaf\xb2-\xb5\xb8-\xba\xbc-\xbe\xc0-\xc5\xc7-\xcf\xd1-\xd6\xd9-\xdd\xe0-\xe5\xe7-\xef\xf1-\xf6\xf9-\xfd\xff",
-    "n": "\xa0\xa8\xaa\xaf\xb2-\xb5\xb8-\xba\xbc-\xbe\xc0-\xc5\xc7-\xcf\xd1-\xd6\xd9-\xdd\xe0-\xe5\xe7-\xef\xf1-\xf6\xf9-\xfd\xff",
-    "y": "\x00-\x9f\xa1-\xa7\xa9\xab-\xae\xb0-\xb1\xb6-\xb7\xbb\xbf\xc6\xd0\xd7-\xd8\xde-\xdf\xe6\xf0\xf7-\xf8\xfe"
+    "^n": "\x00-\U0010ffff",
+    "^y": "\x80-\U0010ffff",
+    "n": "",
+    "y": "\x00-\x7f"
 }
