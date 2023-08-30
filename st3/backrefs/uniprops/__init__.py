@@ -414,7 +414,10 @@ def get_bidi_paired_bracket_type_property(value, mode=MODE_UNICODE):
 def get_vertical_orientation_property(value, mode=MODE_UNICODE):
     """Get `VO` property."""
 
-    obj = unidata.ascii_vertical_orientation if mode != MODE_UNICODE else unidata.unicode_vertical_orientation
+    if mode != MODE_UNICODE:
+        obj = unidata.ascii_vertical_orientation
+    else:
+        obj = unidata.unicode_vertical_orientation
 
     if value.startswith('^'):
         negated = value[1:]
