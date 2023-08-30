@@ -521,7 +521,6 @@ def subf(
 ):
     """Wrapper for `subf`."""
 
-    flags = args[4] if len(args) > 4 else kwargs.get('flags', 0)
     is_replace = _is_replace(repl)
     is_string = isinstance(repl, (str, bytes))
     if is_replace and not repl.use_format:

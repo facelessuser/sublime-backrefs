@@ -1138,7 +1138,7 @@ class _ReplaceParser(object):
                 value = self.convert_case(value, self.span_stack[-1])
             self.result.append(value)
 
-    def parse_template(self, template):
+    def _parse_template(self, template):
         """Parse template."""
 
         self.result = [""]
