@@ -16,11 +16,9 @@ Add the ability to use the following backrefs with re:
  - `\PL`, `\P{Lu}`, `\p{^Lu}`                                    - Inverse Unicode properties (search Unicode)
  - `\N{Black Club Suit}`                                         - Unicode character by name (search & replace)
  - `\u0000` and `\U00000000`                                     - Unicode characters (replace)
- - `\e`                                                          - Escape character (search)
  - `\m`                                                          - Starting word boundary (search)
  - `\M`                                                          - Ending word boundary (search)
  - `\R`                                                          - Generic line breaks (search)
- - `\h`                                                          - Horizontal whitespace (search)
  - `\X`                                                          - Simplified grapheme clusters (search)
 
 Licensed under MIT
@@ -36,7 +34,7 @@ from ._bre_parse import ReplaceTemplate
 __all__ = (
     "expand", "expandf", "search", "match", "fullmatch", "split", "findall", "finditer", "sub", "subf",
     "subn", "subfn", "purge", "escape", "DEBUG", "I", "IGNORECASE", "L", "LOCALE", "M", "MULTILINE",
-    "S", "DOTALL", "U", "UNICODE", "X", "VERBOSE", "compile", "compile_search", "compile_replace", "Bregex",
+    "S", "DOTALL", "U", "UNICODE", "X", "VERBOSE", "compile", "compile_search", "compile_replace", "Bre",
     "ReplaceTemplate", "A", "ASCII"
 ) + (("fullmatch",) if _util.PY34 else tuple())
 
@@ -79,7 +77,7 @@ def _cached_search_compile(pattern, re_verbose, re_unicode, pattern_type):
 def _cached_replace_compile(pattern, repl, flags, pattern_type):
     """Cached replace compile."""
 
-    return _bre_parse._ReplaceParser().parse(pattern, repl, bool(flags & FORMAT))
+    return _bre_parse._ReplaceParser(pattern, repl, bool(flags & FORMAT)).parse()
 
 
 def _get_cache_size(replace=False):
@@ -110,11 +108,10 @@ def _apply_replace_backrefs(m, repl=None, flags=0):
 
     if m is None:
         raise ValueError("Match is None!")
-    else:
-        if isinstance(repl, ReplaceTemplate):
-            return repl.expand(m)
-        elif isinstance(repl, (str, bytes)):
-            return _bre_parse._ReplaceParser().parse(m.re, repl, bool(flags & FORMAT)).expand(m)
+
+    if isinstance(repl, ReplaceTemplate):
+        return repl.expand(m)
+    return _bre_parse._ReplaceParser(m.re, repl, bool(flags & FORMAT)).parse().expand(m)
 
 
 def _apply_search_backrefs(pattern, flags=0):
@@ -128,19 +125,22 @@ def _apply_search_backrefs(pattern, flags=0):
         elif bool(UNICODE & flags):
             re_unicode = True
         if not (flags & DEBUG):
-            pattern = _cached_search_compile(pattern, re_verbose, re_unicode, type(pattern))
+            p = _cached_search_compile(
+                pattern, re_verbose, re_unicode, type(pattern)
+            )
         else:  # pragma: no cover
-            pattern = _bre_parse._SearchParser(pattern, re_verbose, re_unicode).parse()
+            p = _bre_parse._SearchParser(pattern, re_verbose, re_unicode).parse()
     elif isinstance(pattern, Bre):
         if flags:
             raise ValueError("Cannot process flags argument with a compiled pattern")
-        pattern = pattern._pattern
-    elif isinstance(pattern, (_RE_TYPE, Bre)):
+        p = pattern._pattern
+    elif isinstance(pattern, _RE_TYPE):
         if flags:
             raise ValueError("Cannot process flags argument with a compiled pattern!")
+        p = pattern
     else:
         raise TypeError("Not a string or compiled pattern!")
-    return pattern
+    return p
 
 
 def _assert_expandable(repl, use_format=False):
@@ -229,26 +229,24 @@ class Bre(_util.Immutable):
     def __repr__(self):  # pragma: no cover
         """Representation."""
 
-        return '%s.%s(%r, auto_compile=%r)' % (
+        return '{}.{}({!r}, auto_compile={!r})'.format(
             self.__module__, self.__class__.__name__, self._pattern, self.auto_compile
         )
 
     def _auto_compile(self, template, use_format=False):
         """Compile replacements."""
 
-        is_replace = _is_replace(template)
-        is_string = isinstance(template, (str, bytes))
-        if is_replace and use_format != template.use_format:
-            raise ValueError("Compiled replace cannot be a format object!")
-        if is_replace or (is_string and self.auto_compile):
-            return self.compile(template, (FORMAT if use_format and not is_replace else 0))
-        elif is_string and use_format:
+        if isinstance(template, ReplaceTemplate):
+            if use_format != template.use_format:
+                raise ValueError("Compiled replace cannot be a format object!")
+        elif isinstance(template, ReplaceTemplate) or (isinstance(template, (str, bytes)) and self.auto_compile):
+            return self.compile(template, (FORMAT if use_format and not isinstance(template, ReplaceTemplate) else 0))
+        elif isinstance(template, (str, bytes)) and use_format:
             # Reject an attempt to run format replace when auto-compiling
             # of template strings has been disabled and we are using a
             # template string.
             raise AttributeError('Format replaces cannot be called without compiling replace template!')
-        else:
-            return template
+        return template
 
     def compile(self, repl, flags=0):  # noqa A001
         """Compile replace."""
@@ -332,13 +330,12 @@ def compile_search(pattern, flags=0):
 def compile_replace(pattern, repl, flags=0):
     """Construct a method that can be used as a replace method for `sub`, `subn`, etc."""
 
-    call = None
     if pattern is not None and isinstance(pattern, _RE_TYPE):
         if isinstance(repl, (str, bytes)):
             if not (pattern.flags & DEBUG):
                 call = _cached_replace_compile(pattern, repl, flags, type(repl))
             else:  # pragma: no cover
-                call = _bre_parse._ReplaceParser().parse(pattern, repl, bool(flags & FORMAT))
+                call = _bre_parse._ReplaceParser(pattern, repl, bool(flags & FORMAT)).parse()
         elif isinstance(repl, ReplaceTemplate):
             if flags:
                 raise ValueError("Cannot process flags argument with a ReplaceTemplate!")
@@ -366,60 +363,53 @@ def expand(m, repl):
     return _apply_replace_backrefs(m, repl)
 
 
-def expandf(m, format):  # noqa A002
+def expandf(m, repl):  # noqa A002
     """Expand the string using the format replace pattern or function."""
 
-    _assert_expandable(format, True)
-    return _apply_replace_backrefs(m, format, flags=FORMAT)
+    _assert_expandable(repl, True)
+    return _apply_replace_backrefs(m, repl, flags=FORMAT)
 
 
-def search(pattern, string, *args, **kwargs):
+def search(pattern, string, flags=0, *args, **kwargs):
     """Apply `search` after applying backrefs."""
 
-    flags = args[2] if len(args) > 2 else kwargs.get('flags', 0)
-    return _re.search(_apply_search_backrefs(pattern, flags), string, *args, **kwargs)
+    return _re.search(_apply_search_backrefs(pattern, flags), string, flags, *args, **kwargs)
 
 
-def match(pattern, string, *args, **kwargs):
+def match(pattern, string, flags=0, *args, **kwargs):
     """Apply `match` after applying backrefs."""
 
-    flags = args[2] if len(args) > 2 else kwargs.get('flags', 0)
-    return _re.match(_apply_search_backrefs(pattern, flags), string, *args, **kwargs)
+    return _re.match(_apply_search_backrefs(pattern, flags), string, flags, *args, **kwargs)
 
 
 if _util.PY34:
-    def fullmatch(pattern, string, *args, **kwargs):
+    def fullmatch(pattern, string, flags=0, *args, **kwargs):
         """Apply `fullmatch` after applying backrefs."""
 
-        flags = args[2] if len(args) > 2 else kwargs.get('flags', 0)
-        return _re.fullmatch(_apply_search_backrefs(pattern, flags), string, *args, **kwargs)
+        return _re.fullmatch(_apply_search_backrefs(pattern, flags), string, flags, *args, **kwargs)
 
 
-def split(pattern, string, *args, **kwargs):
+def split(pattern, string, maxsplit=0, flags=0, *args, **kwargs):
     """Apply `split` after applying backrefs."""
 
-    flags = args[3] if len(args) > 3 else kwargs.get('flags', 0)
-    return _re.split(_apply_search_backrefs(pattern, flags), string, *args, **kwargs)
+    return _re.split(_apply_search_backrefs(pattern, flags), string, maxsplit, flags, *args, **kwargs)
 
 
-def findall(pattern, string, *args, **kwargs):
+def findall(pattern, string, flags=0, *args, **kwargs):
     """Apply `findall` after applying backrefs."""
 
-    flags = args[2] if len(args) > 2 else kwargs.get('flags', 0)
-    return _re.findall(_apply_search_backrefs(pattern, flags), string, *args, **kwargs)
+    return _re.findall(_apply_search_backrefs(pattern, flags), string, flags, *args, **kwargs)
 
 
-def finditer(pattern, string, *args, **kwargs):
+def finditer(pattern, string, flags=0, *args, **kwargs):
     """Apply `finditer` after applying backrefs."""
 
-    flags = args[2] if len(args) > 2 else kwargs.get('flags', 0)
-    return _re.finditer(_apply_search_backrefs(pattern, flags), string, *args, **kwargs)
+    return _re.finditer(_apply_search_backrefs(pattern, flags), string, flags, *args, **kwargs)
 
 
-def sub(pattern, repl, string, *args, **kwargs):
+def sub(pattern, repl, string, count=0, flags=0, *args, **kwargs):
     """Apply `sub` after applying backrefs."""
 
-    flags = args[4] if len(args) > 4 else kwargs.get('flags', 0)
     is_replace = _is_replace(repl)
     is_string = isinstance(repl, (str, bytes))
     if is_replace and repl.use_format:
@@ -427,31 +417,40 @@ def sub(pattern, repl, string, *args, **kwargs):
 
     pattern = compile_search(pattern, flags)
     return _re.sub(
-        pattern, (compile_replace(pattern, repl) if is_replace or is_string else repl), string, *args, **kwargs
+        pattern,
+        (compile_replace(pattern, repl) if is_replace or is_string else repl),
+        string,
+        count,
+        0,
+        *args,
+        **kwargs
     )
 
 
-def subf(pattern, format, string, *args, **kwargs):  # noqa A002
+def subf(pattern, repl, string, count=0, flags=0, *args, **kwargs):  # noqa A002
     """Apply `sub` with format style replace."""
 
-    flags = args[4] if len(args) > 4 else kwargs.get('flags', 0)
-    is_replace = _is_replace(format)
-    is_string = isinstance(format, (str, bytes))
-    if is_replace and not format.use_format:
+    is_replace = _is_replace(repl)
+    is_string = isinstance(repl, (str, bytes))
+    if is_replace and not repl.use_format:
         raise ValueError("Compiled replace is not a format object!")
 
     pattern = compile_search(pattern, flags)
     rflags = FORMAT if is_string else 0
     return _re.sub(
-        pattern, (compile_replace(pattern, format, flags=rflags) if is_replace or is_string else format), string,
-        *args, **kwargs
+        pattern,
+        (compile_replace(pattern, repl, flags=rflags) if is_replace or is_string else repl),
+        string,
+        count,
+        0,
+        *args,
+        **kwargs
     )
 
 
-def subn(pattern, repl, string, *args, **kwargs):
+def subn(pattern, repl, string, count=0, flags=0, *args, **kwargs):
     """Apply `subn` with format style replace."""
 
-    flags = args[4] if len(args) > 4 else kwargs.get('flags', 0)
     is_replace = _is_replace(repl)
     is_string = isinstance(repl, (str, bytes))
     if is_replace and repl.use_format:
@@ -459,24 +458,34 @@ def subn(pattern, repl, string, *args, **kwargs):
 
     pattern = compile_search(pattern, flags)
     return _re.subn(
-        pattern, (compile_replace(pattern, repl) if is_replace or is_string else repl), string, *args, **kwargs
+        pattern,
+        (compile_replace(pattern, repl) if is_replace or is_string else repl),
+        string,
+        count,
+        0,
+        *args,
+        **kwargs
     )
 
 
-def subfn(pattern, format, string, *args, **kwargs):  # noqa A002
+def subfn(pattern, format, string, count=0, flags=0, *args, **kwargs):  # noqa A002
     """Apply `subn` after applying backrefs."""
 
-    flags = args[4] if len(args) > 4 else kwargs.get('flags', 0)
-    is_replace = _is_replace(format)
-    is_string = isinstance(format, (str, bytes))
-    if is_replace and not format.use_format:
+    is_replace = _is_replace(repl)
+    is_string = isinstance(repl, (str, bytes))
+    if is_replace and not repl.use_format:
         raise ValueError("Compiled replace is not a format object!")
 
     pattern = compile_search(pattern, flags)
     rflags = FORMAT if is_string else 0
     return _re.subn(
-        pattern, (compile_replace(pattern, format, flags=rflags) if is_replace or is_string else format), string,
-        *args, **kwargs
+        pattern,
+        (compile_replace(pattern, repl, flags=rflags) if is_replace or is_string else repl),
+        string,
+        count,
+        0,
+        *args,
+        **kwargs
     )
 
 

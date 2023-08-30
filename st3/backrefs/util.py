@@ -10,6 +10,8 @@ import warnings
 PY34 = (3, 4) <= sys.version_info
 PY36 = (3, 6) <= sys.version_info
 PY37 = (3, 7) <= sys.version_info
+PY311 = (3, 11) <= sys.version_info
+PY312 = (3, 12) <= sys.version_info
 
 FMT_FIELD = 0
 FMT_INDEX = 1
@@ -63,64 +65,76 @@ class StringIter(object):
         return char
 
 
-def _to_bstr(l):
+def _to_bstr(obj):
     """Convert to byte string."""
 
-    if isinstance(l, str):
-        l = l.encode('ascii', 'backslashreplace')
-    elif not isinstance(l, bytes):
-        l = str(l).encode('ascii', 'backslashreplace')
-    return l
+    if isinstance(obj, str):
+        return obj.encode('ascii', 'backslashreplace')
+    elif not isinstance(obj, bytes):
+        return str(obj).encode('ascii', 'backslashreplace')
+    return obj
 
 
-def format_string(m, l, capture, is_bytes):
-    """Perform a string format."""
+def _to_str(obj):
+    """Convert to string."""
 
-    for fmt_type, value in capture[1:]:
+    if not isinstance(obj, str):
+        return str(obj)
+    return obj
+
+
+def format_captures(
+    captures,
+    formatting,
+    converter,
+    default
+):
+    """Perform a string format on a set of captures."""
+
+    capture = captures
+    for i, fmt in enumerate(formatting, 0):
+        if i == 0:
+            continue
+        fmt_type, value = fmt
         if fmt_type == FMT_ATTR:
             # Attribute
-            l = getattr(l, value)
+            capture = getattr(capture, value)
         elif fmt_type == FMT_INDEX:
             # Index
-            l = l[value]
-        elif fmt_type == FMT_CONV:
-            if is_bytes:
-                # Conversion
-                if value in ('r', 'a'):
-                    l = repr(l).encode('ascii', 'backslashreplace')
-                elif value == 's':
-                    # If the object is not string or byte string already
-                    l = _to_bstr(l)
+            if value is not None:
+                capture = capture[value]
             else:
-                # Conversion
-                if value == 'a':
-                    l = ascii(l)
-                elif value == 'r':
-                    l = repr(l)
-                elif value == 's':
-                    # If the object is not string or byte string already
-                    l = str(l)
+                capture = default if not capture else capture[0]
+        elif fmt_type == FMT_CONV:
+            # Conversion
+            if value == 'a':
+                capture = ascii(capture)
+            elif value == 'r':
+                capture = repr(capture)
+            elif value == 's':
+                # If the object is not string or byte string already
+                capture = str(capture)
         elif fmt_type == FMT_SPEC:
             # Integers and floats don't have an explicit 's' format type.
             if value[3] and value[3] == 's':
-                if isinstance(l, int):  # pragma: no cover
+                if isinstance(capture, int):  # pragma: no cover
                     raise ValueError("Unknown format code 's' for object of type 'int'")
-                if isinstance(l, float):  # pragma: no cover
+                if isinstance(capture, float):  # pragma: no cover
                     raise ValueError("Unknown format code 's' for object of type 'float'")
 
             # Ensure object is a byte string
-            l = _to_bstr(l) if is_bytes else str(l)
+            capture = converter(capture)
 
             spec_type = value[1]
             if spec_type == '^':
-                l = l.center(value[2], value[0])
+                capture = capture.center(value[2], value[0])
             elif spec_type == ">":
-                l = l.rjust(value[2], value[0])
+                capture = capture.rjust(value[2], value[0])
             else:
-                l = l.ljust(value[2], value[0])
+                capture = capture.ljust(value[2], value[0])
 
     # Make sure the final object is a byte string
-    return _to_bstr(l) if is_bytes else str(l)
+    return converter(capture)
 
 
 class Immutable(object):
